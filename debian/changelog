@@ -1,5 +1,11 @@
+nitrux-system-settings (0.0.2) nitrux; urgency=medium
+
+  * Remove unnecessary scripts from usr.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Tue, 10 Jun 2025 14:24:00 -0500
+
 nitrux-system-settings (0.0.1) nitrux; urgency=medium
 
   * Initial release
 
- -- Uri Herrera <uri_herrera@nxos.org>  Sat, 07 Jun 2017 15:12:00 -0500
+ -- Uri Herrera <uri_herrera@nxos.org>  Sat, 07 Jun 2025 15:12:00 -0500
