@@ -1,3 +1,9 @@
+nitrux-system-settings (0.0.4) nitrux; urgency=medium
+
+  * Remove unused fprint file.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Thu, 17 Jul 2025 15:54:00 -0500
+
 nitrux-system-settings (0.0.3) nitrux; urgency=medium
 
   * Clean maintainer scripts.
