@@ -1,14 +1,29 @@
 #!/sbin/openrc-run
+# Copyright 2024 Uri Herrera <uri_herrera@nxos.org>
+# Distributed under the terms of the BSD-3-Clause license
 
-description="Set permissions for energy_uj file"
-
-start() {
-    ebegin "Setting read permission for others on /sys/class/powercap/intel-rapl:0/energy_uj"
-    chmod o+r /sys/class/powercap/intel-rapl:0/energy_uj
-    eend $?
-}
+description="Sets read permissions for the Intel RAPL energy file"
 
 depend() {
-    need mountall
-    after bootmisc
+	# This script modifies a file in /sys, so it needs the sysfs
+	# service to have run first.
+	need sysfs
+}
+
+start() {
+	local rapl_file="/sys/class/powercap/intel-rapl:0/energy_uj"
+
+	if [ ! -f "${rapl_file}" ]; then
+		einfo "Intel RAPL interface not found, skipping."
+		return 0
+	fi
+
+	ebegin "Setting permissions for Intel RAPL energy file"
+	chmod o+r "${rapl_file}"
+	eend $?
+}
+
+stop() {
+	# This is a one-shot service, there is nothing to stop.
+	return 0
 }

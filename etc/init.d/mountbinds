@@ -1,56 +1,46 @@
 #!/sbin/openrc-run
+# Copyright 2024 Uri Herrera <uri_herrera@nxos.org>
+# Distributed under the terms of the BSD-3-Clause license
 
-description="Asthethic FHS for Nitrux OS"
+description="Creates FHS bind mounts for the Nitrux filesystem hierarchy"
 
-check_casper_script() {
-    if [ -f /usr/share/initramfs-tools/scripts/casper-bottom/12fstab ]; then
-        return 0 # File exists
-    else
-        return 1 # File does not exist
-    fi
+depend() {
+	# This script binds directories like /home, /etc, and /var.
+	# It absolutely must run after all local filesystems are mounted.
+	need localmount
+}
+
+# Helper to check if this is a Live session.
+_is_live_session() {
+	[ -f /usr/share/initramfs-tools/scripts/casper-bottom/12fstab ]
 }
 
 start() {
-    ebegin "Checking prerequisites"
-    if check_casper_script; then
-        einfo "Casper fstab script detected, skipping mount binds; this is a Live session."
-        return 0
-    fi
-    einfo "No Casper fstab script detected, proceeding with mount binds; this isn't a Live session."
+	if _is_live_session; then
+		einfo "Live session detected, skipping FHS bind mounts."
+		return 0
+	fi
 
-    ebegin "Binding FHS directories"
+	ebegin "Binding FHS directories"
 
-    mount --bind /dev /System/Devices
-    mount --bind /boot /System/Boot
-    mount --bind /etc /System/Configuration
-    mount --bind /usr/sbin /System/Binaries/Administrative
-    mount --bind /usr/bin /System/Binaries/Standard
-    mount --bind /opt /System/Binaries/Optional
-    mount --bind /mnt /System/Filesystems/Internal
-    mount --bind /media /System/Filesystems/External
-    mount --bind /usr/lib /System/Libraries
-    mount --bind /usr/share /System/Shareable
-    mount --bind /var /System/Variable
-    mount --bind /home /Users
+	mount --bind /dev /System/Devices
+	mount --bind /boot /System/Boot
+	mount --bind /etc /System/Configuration
+	mount --bind /usr/sbin /System/Binaries/Administrative
+	mount --bind /usr/bin /System/Binaries/Standard
+	mount --bind /opt /System/Binaries/Optional
+	mount --bind /mnt /System/Filesystems/Internal
+	mount --bind /media /System/Filesystems/External
+	mount --bind /usr/lib /System/Libraries
+	mount --bind /usr/share /System/Shareable
+	mount --bind /var /System/Variable
+	mount --bind /home /Users
 
-    eend $?
+	eend $?
 }
 
 stop() {
-    ebegin "Unbinding FHS directories"
-
-    umount /System/Devices
-    umount /System/Boot
-    umount /System/Configuration
-    umount /System/Binaries/Administrative
-    umount /System/Binaries/Standard
-    umount /System/Binaries/Optional
-    umount /System/Filesystems/External
-    umount /System/Filesystems/Internal
-    umount /System/Libraries
-    umount /System/Shareable
-    umount /System/Variable
-    umount /Users
-
-    eend $?
+	# Unmounting bind mounts is handled globally by the 'umountfs'
+	# shutdown service. A manual stop action is not needed here.
+	return 0
 }

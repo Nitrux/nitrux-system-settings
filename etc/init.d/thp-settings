@@ -1,15 +1,30 @@
 #!/sbin/openrc-run
+# Copyright 2024 Uri Herrera <uri_herrera@nxos.org>
+# Distributed under the terms of the BSD-3-Clause license
 
-description="Set Transparent Huge Page Settings"
+description="Configures Transparent Huge Page settings"
+
+depend() {
+	# This script modifies files in /sys, so it needs the sysfs
+	# service to have run first.
+	need sysfs
+}
 
 start() {
-    ebegin "Setting Transparent Huge Page Settings"
-    echo "always" > /sys/kernel/mm/transparent_hugepage/enabled
-    echo "0" > /sys/kernel/mm/transparent_hugepage/khugepaged/defrag
-    eend $? "Failed to set Transparent Huge Page Settings"
+	local thp_path="/sys/kernel/mm/transparent_hugepage"
+
+	if [ ! -d "${thp_path}" ]; then
+		einfo "Transparent Huge Page support not found, skipping."
+		return 0
+	fi
+
+	ebegin "Applying Transparent Huge Page settings"
+	echo "always" > "${thp_path}/enabled"
+	echo "0" > "${thp_path}/khugepaged/defrag"
+	eend $? "Failed to apply Transparent Huge Page settings"
 }
 
 stop() {
-    # No need to do anything on stop
-    return 0
+	# This is a one-shot service, there is nothing to stop.
+	return 0
 }

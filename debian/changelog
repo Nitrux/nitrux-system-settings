@@ -1,3 +1,10 @@
+nitrux-system-settings (0.0.5) nitrux; urgency=medium
+
+  * Refactor init scripts.
+  * Move NetworkManager settings to nitrux-desktop-settings.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Thu, 17 Jul 2025 18:37:00 -0500
+
 nitrux-system-settings (0.0.4) nitrux; urgency=medium
 
   * Remove unused fprint file.
