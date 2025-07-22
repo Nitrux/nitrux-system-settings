@@ -1,3 +1,9 @@
+nitrux-system-settings (0.0.6) nitrux; urgency=medium
+
+  * Move files to nitrux-desktop-settings.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Mon, 21 Jul 2025 23:0:00 -0500
+
 nitrux-system-settings (0.0.5) nitrux; urgency=medium
 
   * Refactor init scripts.
