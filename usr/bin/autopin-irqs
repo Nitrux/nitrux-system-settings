@@ -1,0 +1,248 @@
+#!/usr/bin/env bash
+
+#############################################################################################################################################################################
+#   The license used for this file and its contents is: BSD-3-Clause                                                                                                        #
+#                                                                                                                                                                           #
+#   Copyright <2025> <Uri Herrera <uri_herrera@nxos.org>>                                                                                                                   #
+#                                                                                                                                                                           #
+#   Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:                          #
+#                                                                                                                                                                           #
+#    1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.                                        #
+#                                                                                                                                                                           #
+#    2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer                                      #
+#       in the documentation and/or other materials provided with the distribution.                                                                                         #
+#                                                                                                                                                                           #
+#    3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software                    #
+#       without specific prior written permission.                                                                                                                          #
+#                                                                                                                                                                           #
+#    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,                      #
+#    THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS                  #
+#    BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE                 #
+#    GOODS OR SERVICES; LOSS OF USE, DATA,   OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,                      #
+#    STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.   #
+#############################################################################################################################################################################
+
+
+# Auto-generates an /etc/conf.d/irq-pin file by analyzing CPU topology.
+#
+# - For V-Cache CPUs (e.g., 7900X3D):
+#   Finds the cores with the *smallest* L3 cache and pins IRQs there.
+# - For standard CPUs:
+#   Pins IRQs to the *last* logical core and its SMT sibling.
+
+
+# -- Exit on errors.
+
+set -euo pipefail
+
+
+# -- Configuration.
+#   -- Add any other driver names you want to pin.
+
+DEVICE_PATTERNS="amdgpu|nvidia|nvme[0-9]+q?[0-9]*|xhci_hcd|ehci_hcd|r8169|r8125|e1000e|igc|r8152|iwlwifi|rtw88|mt76|ath9k|ath10k|snd_hda_intel|snd_sof_pci|btusb"
+CONFIG_FILE="/etc/conf.d/irq-pin"
+
+
+# -- Functions.
+
+normalize_to_kb() {
+    local size_str
+    size_str=$(cat "$1")
+    case "$size_str" in
+        *K) echo "${size_str%K}" ;;
+        *M) echo "$((${size_str%M} * 1024))" ;;
+        *) echo "$size_str" ;;
+    esac
+}
+
+expand_list() {
+    echo "$1" | tr ',' '\n' | \
+    sed -E 's/([0-9]+)-([0-9]+)/{\1..\2}/g' | \
+    xargs -n1 echo 2>/dev/null || true
+}
+
+
+# -- Check permissions.
+
+if [ "$EUID" -ne 0 ]; then
+  echo "This script must be run as root." >&2
+  exit 1
+fi
+
+
+# -- Create temp file in the destination dir for atomic mv
+
+TMP_FILE=$(mktemp "$CONFIG_FILE.XXXXXX")
+trap 'rm -f "$TMP_FILE"' EXIT
+
+echo "Starting IRQ pin configuration generator..."
+
+TARGET_CPUS=()
+CPU_TYPE_MSG=""
+ECORES_FOUND=0
+
+
+# -- Step 1: Find the L3 cache index name (e.g., "index3").
+
+if [ -f "/sys/devices/system/cpu/cpu0/topology/core_type" ]; then
+    echo "Detected Intel Hybrid topology..."
+    for cpu_path in /sys/devices/system/cpu/cpu[0-9]*; do
+        core_type_file="$cpu_path/topology/core_type"
+        # E-cores are type "2"
+        if [ -f "$core_type_file" ] && [ "$(cat "$core_type_file")" == "2" ]; then
+             cpu_num=$(basename "$cpu_path" | tr -cd '0-9')
+             TARGET_CPUS+=("$cpu_num")
+             ECORES_FOUND=1
+        fi
+    done
+    
+    if [ $ECORES_FOUND -eq 1 ]; then
+        CPU_TYPE_MSG="Intel Hybrid (E-cores identified)"
+        echo "Found E-cores: ${TARGET_CPUS[*]}"
+    else
+        echo "Hybrid topology detected, but no E-cores found? Falling back to L3 logic."
+    fi
+fi
+
+
+# -- Step 2: Get all unique L3 cache sizes.
+
+if [ $ECORES_FOUND -eq 0 ]; then
+    echo "No E-cores found, analyzing L3 cache topology..."
+    L3_INDEX_NAME=""
+    for cache_dir in /sys/devices/system/cpu/cpu0/cache/index*; do
+        if [ -f "$cache_dir/level" ] && [ "$(cat "$cache_dir/level")" = "3" ]; then
+            L3_INDEX_NAME=$(basename "$cache_dir")
+            break
+        fi
+    done
+
+    if [ -z "$L3_INDEX_NAME" ]; then
+      echo "Error: Could not determine L3 cache path. Aborting." >&2
+      exit 1
+    fi
+    echo "Found L3 cache at: $L3_INDEX_NAME"
+
+    L3_SIZES_KB=$(
+        (for f in /sys/devices/system/cpu/cpu[0-9]*/cache/"$L3_INDEX_NAME"/size; do
+            [ -f "$f" ] && normalize_to_kb "$f"
+        done) | sort -n -u
+    )
+
+    MIN_L3_SIZE_KB=$(echo "$L3_SIZES_KB" | head -n1)
+    MAX_L3_SIZE_KB=$(echo "$L3_SIZES_KB" | tail -n1)
+
+    if [ -z "$MIN_L3_SIZE_KB" ]; then
+        echo "Error: Could not determine L3 cache sizes." >&2
+        exit 1
+    fi
+
+    if [ "$MIN_L3_SIZE_KB" == "$MAX_L3_SIZE_KB" ]; then
+      
+      # -- Standard CPU logic.
+
+      CPU_TYPE_MSG="Standard CPU (uniform L3 cache: ${MIN_L3_SIZE_KB}K)"
+      echo "Detected: $CPU_TYPE_MSG"
+      
+      LAST_ONLINE_CPU=$(cat /sys/devices/system/cpu/online | tr ',' '\n' | cut -d'-' -f2 | sort -nr | head -n1)
+      TARGET_CPUS+=("$LAST_ONLINE_CPU")
+
+    else
+      
+      # -- V-Cache / Asymmetric L3 logic.
+
+      CPU_TYPE_MSG="Asymmetric L3 cache (V-Cache/CCD) detected"
+      echo "Detected: $CPU_TYPE_MSG"
+      echo "  Performance L3: ${MAX_L3_SIZE_KB}K"
+      echo "  Standard L3:    ${MIN_L3_SIZE_KB}K"
+      
+      # Find all CPUs with the *smallest* L3 cache
+      for cpu_path in /sys/devices/system/cpu/cpu[0-9]*; do
+        cpu_num=$(basename "$cpu_path" | tr -cd '0-9')
+        size_file="$cpu_path/cache/$L3_INDEX_NAME/size"
+        
+        if [ -f "$size_file" ]; then
+            size_kb=$(normalize_to_kb "$size_file")
+            if [ "$size_kb" == "$MIN_L3_SIZE_KB" ]; then
+              TARGET_CPUS+=("$cpu_num")
+            fi
+        fi
+      done
+    fi
+fi
+
+if [ ${#TARGET_CPUS[@]} -eq 0 ]; then
+  echo "Error: Failed to find any target CPUs." >&2
+  exit 1
+fi
+
+
+# -- Step 3: Select one core from the target list (the last one) and find its SMT siblings.
+
+HOUSEKEEPING_CORE=${TARGET_CPUS[-1]}
+SIBLINGS_FILE="/sys/devices/system/cpu/cpu$HOUSEKEEPING_CORE/topology/thread_siblings_list"
+
+if [ ! -f "$SIBLINGS_FILE" ]; then
+    echo "Error: Cannot find topology file: $SIBLINGS_FILE" >&2
+    exit 1
+fi
+
+POTENTIAL_SIBLINGS=$(cat "$SIBLINGS_FILE")
+ONLINE_CPUS=$(cat /sys/devices/system/cpu/online)
+
+CPUSET=$(
+    comm -12 \
+    <(expand_list "$POTENTIAL_SIBLINGS" | sort -n) \
+    <(expand_list "$ONLINE_CPUS" | sort -n) | \
+    tr '\n' ',' | sed 's/,$//'
+)
+
+if [ -z "$CPUSET" ]; then
+    echo "Error: No online CPUs found for the target housekeeping core $HOUSEKEEPING_CORE (Siblings: $POTENTIAL_SIBLINGS)." >&2
+    exit 1
+fi
+
+echo "Selected housekeeping core(s): $CPUSET (Online Logical CPUs)"
+
+
+# -- Step 4: Find all devices to pin using more robust extraction.
+
+echo "Scanning /proc/interrupts for devices..."
+DEVICES=$(
+    awk -F'  +' '/^[ 0-9]+:/ {print $NF}' /proc/interrupts | \
+    grep -Eo "$DEVICE_PATTERNS" | \
+    sort -u | tr '\n' ',' | sed 's/,$//'
+)
+
+if [ -z "$DEVICES" ]; then
+  echo "Warning: No devices found matching patterns. Config will be empty."
+  DEVICES=""
+fi
+echo "Found devices: $DEVICES"
+
+
+# -- Step 5: Write the config file.
+
+echo "Writing configuration..."
+{
+  echo "# Auto-generated by $0 on $(date)"
+  echo "#"
+  echo "# Detected Topology: $CPU_TYPE_MSG"
+  echo "# Housekeeping CPUs (target for all IRQs): $CPUSET"
+  echo ""
+  echo "DEVICES=\"$DEVICES\""
+  echo ""
+
+  if [ -n "$DEVICES" ]; then
+      for d in $(echo "$DEVICES" | tr ',' ' '); do
+        echo "CPUSET_${d}=\"$CPUSET\""
+      done
+  fi
+} > "$TMP_FILE"
+
+
+# -- Step 6: Atomically move the temp file to the final destination.
+
+mv "$TMP_FILE" "$CONFIG_FILE"
+
+echo "Done. Generated $CONFIG_FILE. Enable and start the 'irq-pin' service."

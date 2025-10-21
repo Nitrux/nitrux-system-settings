@@ -3,12 +3,9 @@
 description="Creates FHS bind mounts for the Nitrux filesystem hierarchy"
 
 depend() {
-	# This script binds directories like /home, /etc, and /var.
-	# It absolutely must run after all local filesystems are mounted.
 	need localmount
 }
 
-# Helper to check if this is a Live session.
 _is_live_session() {
 	[ -f /usr/share/initramfs-tools/scripts/casper-bottom/12fstab ]
 }
@@ -38,7 +35,5 @@ start() {
 }
 
 stop() {
-	# Unmounting bind mounts is handled globally by the 'umountfs'
-	# shutdown service. A manual stop action is not needed here.
 	return 0
 }

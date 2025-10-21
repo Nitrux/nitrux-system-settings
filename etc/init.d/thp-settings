@@ -3,8 +3,6 @@
 description="Configures Transparent Huge Page settings"
 
 depend() {
-	# This script modifies files in /sys, so it needs the sysfs
-	# service to have run first.
 	need sysfs
 }
 
@@ -23,6 +21,5 @@ start() {
 }
 
 stop() {
-	# This is a one-shot service, there is nothing to stop.
 	return 0
 }

@@ -3,8 +3,6 @@
 description="Sets read permissions for the Intel RAPL energy file"
 
 depend() {
-	# This script modifies a file in /sys, so it needs the sysfs
-	# service to have run first.
 	need sysfs
 }
 
@@ -22,6 +20,5 @@ start() {
 }
 
 stop() {
-	# This is a one-shot service, there is nothing to stop.
 	return 0
 }

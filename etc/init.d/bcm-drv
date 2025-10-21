@@ -3,14 +3,10 @@
 description="Manages Broadcom wireless drivers based on detected hardware"
 
 depend() {
-	# Needs kernel modules and udev to be ready.
 	need modules
 	after udev
 }
 
-# --- Helper Functions ---
-
-# Helper to load a driver and report status.
 _modprobe_driver() {
 	local driver=$1
 	ebegin "Loading ${driver} driver"
@@ -18,28 +14,23 @@ _modprobe_driver() {
 	eend $? "Failed to load the ${driver} driver"
 }
 
-# Helper to unload all potentially conflicting drivers.
 _remove_drivers() {
 	ebegin "Unloading wireless modules"
 	modprobe -r wl brcmsmac b43 b43legacy >/dev/null 2>&1
 	eend 0
 }
 
-# --- Main Service Functions ---
-
 start() {
 	ebegin "Detecting Broadcom wireless chip"
-	# The lspci check is the core of this script's logic.
 	local chip_info
 	chip_info=$(lspci -nn -d 14e4:)
 	eend 0
 
 	if [ -z "${chip_info}" ]; then
 		einfo "No Broadcom wireless chip detected"
-		return 0 # Exit cleanly if no relevant hardware is found
+		return 0
 	fi
 
-	# Ensure any old drivers are removed before loading the new one.
 	_remove_drivers
 
 	local driver_loaded=false
