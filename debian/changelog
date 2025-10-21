@@ -1,6 +1,6 @@
 nitrux-system-settings (0.0.7) nitrux; urgency=medium
 
-  * Move files to nitrux-desktop-settings.
+  * Don't edit login.defs with SHA_CRYPT has values because we're using yescrypt.
 
  -- Uri Herrera <uri_herrera@nxos.org>  Tue, 21 Oct 2025 03:41:00 -0500
 
