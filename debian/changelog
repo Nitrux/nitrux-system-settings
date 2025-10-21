@@ -1,6 +1,5 @@
-nitrux-system-settings (0.0.8 ) nitrux; urgency=medium
+nitrux-system-settings (0.0.8) nitrux; urgency=medium
 
-  * Don't edit login.defs with SHA_CRYPT has values because we're using yescrypt.
   * Don't set ratios for swapiness when settings bytes.
   * Remove dupe sysctl setting.
   * Improve the nstync udev rule.
