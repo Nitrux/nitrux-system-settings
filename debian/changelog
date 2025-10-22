@@ -1,3 +1,10 @@
+nitrux-system-settings (0.1.1) nitrux; urgency=medium
+
+  * Fix sort output in autopin-irqs.
+  * Use consistent vars in autocpuset.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Tue, 21 Oct 2025 23:10:00 -0500
+
 nitrux-system-settings (0.1.0) nitrux; urgency=medium
 
   * Apply cpuset isolation using the same housekeeping cores and moves background tasks away from game cores.

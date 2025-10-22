@@ -58,7 +58,7 @@ normalize_to_kb() {
 expand_list() {
     echo "$1" | tr ',' '\n' | \
     sed -E 's/([0-9]+)-([0-9]+)/{\1..\2}/g' | \
-    xargs -n1 echo 2>/dev/null || true
+    xargs -n1 echo 2>/dev/null | sort -n
 }
 
 

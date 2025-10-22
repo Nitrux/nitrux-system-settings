@@ -92,12 +92,12 @@ fi
 
 # -- Correctly calculate GAME_CORES using set subtraction.
 
-all_cores_expanded=$(expand_list "$ALL_CORES_ONLINE")
-hk_cores_expanded=$(expand_list "$HOUSEKEEPING_CORES")
+ALL_CORES_EXPANDED=$(expand_list "$ALL_CORES_ONLINE")
+HK_CORES_EXPANDED=$(expand_list "$HOUSEKEEPING_CORES")
 
-game_cores_list=$(comm -23 <(echo "$all_cores_expanded") <(echo "$hk_cores_expanded"))
+GAME_CORES_LIST=$(comm -23 <(echo "$ALL_CORES_EXPANDED") <(echo "$HK_CORES_EXPANDED"))
 
-GAME_CORES=$(echo "$game_cores_list" | tr '\n' ',' | sed 's/,$//')
+GAME_CORES=$(echo "$GAME_CORES_LIST" | tr '\n' ',' | sed 's/,$//')
 
 if [ -z "$GAME_CORES" ]; then
     echo " ! Failed to calculate game cores (result was empty)." >&2
