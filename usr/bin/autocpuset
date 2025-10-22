@@ -47,7 +47,7 @@ expand_list() {
             # It's a single number like "8", just echo it
             echo "$range"
         fi
-    done | sort -n
+    done | LC_ALL=C sort
 }
 
 detect_housekeeping_cores() {
@@ -60,7 +60,7 @@ detect_housekeeping_cores() {
             
             for d in $DEVICES; do 
                 local var_name
-                var_name="CPUSET_$(echo "$d" | tr -s '[:space:]-' '_')"
+                var_name="CPUSET_${d}"
                 
                 local cpus="${!var_name:-}" 
                 
@@ -96,12 +96,20 @@ if [ -z "$HOUSEKEEPING_CORES" ]; then
 fi
 
 
+# -- Check permissions.
+
+if [ "$EUID" -ne 0 ]; then
+  echo "This script must be run as root." >&2
+  exit 1
+fi
+
+
 # -- Correctly calculate GAME_CORES using set subtraction.
 
 ALL_CORES_EXPANDED=$(expand_list "$ALL_CORES_ONLINE")
 HK_CORES_EXPANDED=$(expand_list "$HOUSEKEEPING_CORES")
 
-GAME_CORES_LIST=$(comm -23 <(echo "$ALL_CORES_EXPANDED") <(echo "$HK_CORES_EXPANDED"))
+GAME_CORES_LIST=$(LC_ALL=C comm -23 <(echo "$ALL_CORES_EXPANDED") <(echo "$HK_CORES_EXPANDED"))
 
 GAME_CORES=$(echo "$GAME_CORES_LIST" | tr '\n' ',' | sed 's/,$//')
 
@@ -130,15 +138,17 @@ echo " * Configuration written to $CONFIG_FILE"
 mkdir -p /sys/fs/cgroup/cpuset/housekeeping /sys/fs/cgroup/cpuset/game
 
 
+# -- Enable the cpuset controller on the root group.
+
+echo "+cpuset" > /sys/fs/cgroup/cpuset/cgroup.subtree_control 2>/dev/null || true
+
+
 # -- Copy root settings.
 
 for f in cpuset.mems cpuset.sched_load_balance; do
     cat /sys/fs/cgroup/cpuset/$f > /sys/fs/cgroup/cpuset/housekeeping/$f
     cat /sys/fs/cgroup/cpuset/$f > /sys/fs/cgroup/cpuset/game/$f
 done
-
-echo "$HOUSEKEEPING_CORES" > /sys/fs/cgroup/cpuset/housekeeping/cpuset.cpus
-echo "$GAME_CORES" > /sys/fs/cgroup/cpuset/game/cpuset.cpus
 
 
 # -- Move *all* daemons and kernel threads robustly.

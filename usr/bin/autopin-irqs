@@ -64,7 +64,7 @@ expand_list() {
             # It's a single number like "8", just echo it
             echo "$range"
         fi
-    done | sort -n
+    done | LC_ALL=C sort
 }
 
 # -- Check permissions.
@@ -196,9 +196,9 @@ POTENTIAL_SIBLINGS=$(cat "$SIBLINGS_FILE")
 ONLINE_CPUS=$(cat /sys/devices/system/cpu/online)
 
 CPUSET=$(
-    comm -12 \
-    <(expand_list "$POTENTIAL_SIBLINGS" | sort -n) \
-    <(expand_list "$ONLINE_CPUS" | sort -n) | \
+    LC_ALL=C comm -12 \
+    <(expand_list "$POTENTIAL_SIBLINGS") \
+    <(expand_list "$ONLINE_CPUS") | \
     tr '\n' ',' | sed 's/,$//'
 )
 
