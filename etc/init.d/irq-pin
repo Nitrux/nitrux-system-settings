@@ -13,14 +13,14 @@ load_cfg() {
 
 pin_irqs_for() {
     local dev="$1" cpulist="$2" node
-    
-    awk -v d="$dev" -F: '
-        /^[ 0-9]+:/ {irq=$1} 
-        {rhs=substr($0,index($0,":")+1)} 
-        rhs ~ "(^|[^A-Za-z0-9_])" d "([^A-Za-z0-9_]|$)" {print irq}
+    awk -v d="$dev" '
+      /^[[:space:]]*[0-9]+:/ {
+        irq = $1 + 0
+        rhs = substr($0, index($0, ":") + 1)
+        if (rhs ~ "(^|[^A-Za-z0-9_])" d "([^A-Za-z0-9_]|$)") print irq
+      }
     ' /proc/interrupts | while read -r node; do
         [ -n "$node" ] || continue
-        
         echo "$cpulist" > "/proc/irq/$node/smp_affinity_list" 2>/dev/null || \
             ewarn "Failed to set affinity for IRQ $node ($dev)"
     done
@@ -71,14 +71,14 @@ stop() {
     local oifs="$IFS"; IFS=','
     
     for d in $DEVICES; do
-        awk -v dev="$d" -F: '
-            /^[ 0-9]+:/ {irq=$1} 
-            {rhs=substr($0,index($0,":")+1)} 
-            rhs ~ "(^|[^A-Za-z0-9_])" dev "([^A-Za-z0-9_]|$)" {print irq}
-        ' /proc/interrupts | while read -r node; do
+        awk -v dev="$d" '
+            /^[[:space:]]*[0-9]+:/ {
+                irq = $1 + 0
+                rhs = substr($0, index($0, ":") + 1)
+                if (rhs ~ "(^|[^A-Za-z0-9_])" dev "([^A-Za-z0-9_]|$)") print irq
+            }
+        ' /proc/interrupts | while read -r node; do 
             [ -n "$node" ] || continue
-            
-            # CORRECT: Write *only* to smp_affinity_list
             echo "$all_cpus" > "/proc/irq/$node/smp_affinity_list" 2>/dev/null
         done
     done
