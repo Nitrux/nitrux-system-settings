@@ -118,6 +118,19 @@ if [ -z "$GAME_CORES" ]; then
     exit 1
 fi
 
+ONLINE_CORES_EXPANDED=$(expand_list "$ALL_CORES_ONLINE")
+
+HOUSEKEEPING_CORES_FINAL_LIST=$(LC_ALL=C comm -12 <(echo "$HK_CORES_EXPANDED") <(echo "$ONLINE_CORES_EXPANDED"))
+GAME_CORES_FINAL_LIST=$(LC_ALL=C comm -12 <(echo "$GAME_CORES_LIST") <(echo "$ONLINE_CORES_EXPANDED"))
+
+HOUSEKEEPING_CORES=$(echo "$HOUSEKEEPING_CORES_FINAL_LIST" | tr '\n' ',' | sed 's/,$//')
+GAME_CORES=$(echo "$GAME_CORES_FINAL_LIST" | tr '\n' ',' | sed 's/,$//')
+
+if [ -z "$HOUSEKEEPING_CORES" ] || [ -z "$GAME_CORES" ]; then
+    echo " ! Fatal: Clamping to online CPUs resulted in an empty core list." >&2
+    exit 1
+fi
+
 
 # -- Write configuration.
 
@@ -135,27 +148,33 @@ echo " * Configuration written to $CONFIG_FILE"
 
 # -- Apply cpusets.
 
-mkdir -p /sys/fs/cgroup/cpuset/housekeeping /sys/fs/cgroup/cpuset/game
+BASE=/sys/fs/cgroup
 
+mount -t cgroup2 none "$BASE" 2>/dev/null || true
 
-# -- Enable the cpuset controller on the root group.
+printf +cpuset > "$BASE/cgroup.subtree_control" 2>/dev/null || true
 
-echo "+cpuset" > /sys/fs/cgroup/cpuset/cgroup.subtree_control 2>/dev/null || true
+mkdir -p "$BASE/housekeeping" "$BASE/game"
 
+MEMS=$(cat "$BASE/cpuset.mems")
 
-# -- Copy root settings.
+if [ -z "$MEMS" ]; then
+    echo " ! Fatal: Could not read root cpuset.mems. Aborting." >&2
+    exit 1
+fi
 
-for f in cpuset.mems cpuset.sched_load_balance; do
-    cat /sys/fs/cgroup/cpuset/$f > /sys/fs/cgroup/cpuset/housekeeping/$f
-    cat /sys/fs/cgroup/cpuset/$f > /sys/fs/cgroup/cpuset/game/$f
-done
+printf %s "$MEMS" > "$BASE/housekeeping/cpuset.mems"
+printf %s "$MEMS" > "$BASE/game/cpuset.mems"
 
+printf %s "$HOUSEKEEPING_CORES" > "$BASE/housekeeping/cpuset.cpus"
+printf %s "$GAME_CORES" > "$BASE/game/cpuset.cpus"
 
-# -- Move *all* daemons and kernel threads robustly.
+printf member > "$BASE/housekeeping/cpuset.cpus.partition" 2>/dev/null || true
+printf member > "$BASE/game/cpuset.cpus.partition" 2>/dev/null || true
 
 echo " * Moving system daemons and kernel threads to housekeeping..."
 
-echo 1 > /sys/fs/cgroup/cpuset/housekeeping/tasks 2>/dev/null || true
-echo 2 > /sys/fs/cgroup/cpuset/housekeeping/tasks 2>/dev/null || true
+printf 1 > "$BASE/housekeeping/cgroup.procs" 2>/dev/null || true
+printf 2 > "$BASE/housekeeping/cgroup.procs" 2>/dev/null || true
 
 echo " * Applied cpuset isolation."
