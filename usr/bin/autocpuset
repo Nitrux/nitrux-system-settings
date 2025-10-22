@@ -156,10 +156,13 @@ printf +cpuset > "$BASE/cgroup.subtree_control" 2>/dev/null || true
 
 mkdir -p "$BASE/housekeeping" "$BASE/game"
 
-MEMS=$(cat "$BASE/cpuset.mems")
+# -- The root /sys/fs/cgroup/cpuset.mems file does not exist.
+# -- We must read the list of possible NUMA nodes from sysfs.
+
+MEMS=$(cat /sys/devices/system/node/possible)
 
 if [ -z "$MEMS" ]; then
-    echo " ! Fatal: Could not read root cpuset.mems. Aborting." >&2
+    echo " ! Fatal: Could not read /sys/devices/system/node/possible. Aborting." >&2
     exit 1
 fi
 
