@@ -2,7 +2,7 @@ nitrux-system-settings (0.1.7) nitrux; urgency=medium
 
   * Fix irq-pin.
 
- -- Uri Herrera <uri_herrera@nxos.org>  Wed, 22 Oct 2025 04:17:00 -0500
+ -- Uri Herrera <uri_herrera@nxos.org>  Wed, 22 Oct 2025 13:35:00 -0500
 
 nitrux-system-settings (0.1.6) nitrux; urgency=medium
 
