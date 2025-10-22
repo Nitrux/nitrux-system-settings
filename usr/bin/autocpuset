@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+
+#############################################################################################################################################################################
+#   The license used for this file and its contents is: BSD-3-Clause                                                                                                        #
+#                                                                                                                                                                           #
+#   Copyright <2025> <Uri Herrera <uri_herrera@nxos.org>>                                                                                                                   #
+#                                                                                                                                                                           #
+#   Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:                          #
+#                                                                                                                                                                           #
+#    1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.                                        #
+#                                                                                                                                                                           #
+#    2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer                                      #
+#       in the documentation and/or other materials provided with the distribution.                                                                                         #
+#                                                                                                                                                                           #
+#    3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software                    #
+#       without specific prior written permission.                                                                                                                          #
+#                                                                                                                                                                           #
+#    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,                      #
+#    THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS                  #
+#    BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE                 #
+#    GOODS OR SERVICES; LOSS OF USE, DATA,   OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,                      #
+#    STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.   #
+#############################################################################################################################################################################
+
+
+# Applies cpuset isolation using the same housekeeping cores; moves background tasks away from game cores
+
+
+# -- Exit on errors.
+
+set -euo pipefail
+
+
+# -- Configuration.
+
+CONFIG_FILE="/etc/conf.d/cpuset-balance"
+
+
+# -- Functions.
+
+expand_list() {
+    echo "$1" | tr ',' '\n' | \
+    sed -E 's/([0-9]+)-([0-9]+)/{\1..\2}/g' | \
+    xargs -n1 echo 2>/dev/null | sort -n
+}
+
+detect_housekeeping_cores() {
+    if [ -r /etc/conf.d/irq-pin ]; then
+        # shellcheck source=/dev/null
+        . /etc/conf.d/irq-pin
+        
+        if [ -n "${DEVICES:-}" ]; then
+            local oifs="$IFS"; IFS=','
+            
+            for d in $DEVICES; do 
+                local var_name
+                var_name="CPUSET_$(echo "$d" | tr -s '[:space:]-' '_')"
+                
+                local cpus="${!var_name:-}" 
+                
+                if [ -n "$cpus" ]; then
+                    echo "$cpus"
+                    IFS="$oifs"
+                    return
+                fi
+            done
+            IFS="$oifs"
+        fi
+    fi
+    
+    echo " ! irq-pin config not found or empty, using fallback." >&2
+    
+    local last
+    last="$(tr ',' '\n' < /sys/devices/system/cpu/online | cut -d'-' -f2 | sort -nr | head -n1)"
+
+    if [ -z "$last" ]; then
+        echo " ! Failed to find last online CPU." >&2
+        return 1
+    fi
+    
+    cat "/sys/devices/system/cpu/cpu${last}/topology/thread_siblings_list"
+}
+
+ALL_CORES_ONLINE="$(cat /sys/devices/system/cpu/online)"
+HOUSEKEEPING_CORES="$(detect_housekeeping_cores)"
+
+if [ -z "$HOUSEKEEPING_CORES" ]; then
+    echo " ! Failed to determine housekeeping cores." >&2
+    exit 1
+fi
+
+
+# -- Correctly calculate GAME_CORES using set subtraction.
+
+all_cores_expanded=$(expand_list "$ALL_CORES_ONLINE")
+hk_cores_expanded=$(expand_list "$HOUSEKEEPING_CORES")
+
+game_cores_list=$(comm -23 <(echo "$all_cores_expanded") <(echo "$hk_cores_expanded"))
+
+GAME_CORES=$(echo "$game_cores_list" | tr '\n' ',' | sed 's/,$//')
+
+if [ -z "$GAME_CORES" ]; then
+    echo " ! Failed to calculate game cores (result was empty)." >&2
+    exit 1
+fi
+
+
+# -- Write configuration.
+
+mkdir -p /etc/conf.d
+cat > "$CONFIG_FILE" <<EOF
+# Auto-generated by autohousekeeping on $(date)
+HOUSEKEEPING_CORES="$HOUSEKEEPING_CORES"
+GAME_CORES="$GAME_CORES"
+EOF
+
+echo " * Housekeeping cores: $HOUSEKEEPING_CORES"
+echo " * Game/Performance cores: $GAME_CORES"
+echo " * Configuration written to $CONFIG_FILE"
+
+
+# -- Apply cpusets.
+
+mkdir -p /sys/fs/cgroup/cpuset/housekeeping /sys/fs/cgroup/cpuset/game
+
+
+# -- Copy root settings.
+
+for f in cpuset.mems cpuset.sched_load_balance; do
+    cat /sys/fs/cgroup/cpuset/$f > /sys/fs/cgroup/cpuset/housekeeping/$f
+    cat /sys/fs/cgroup/cpuset/$f > /sys/fs/cgroup/cpuset/game/$f
+done
+
+echo "$HOUSEKEEPING_CORES" > /sys/fs/cgroup/cpuset/housekeeping/cpuset.cpus
+echo "$GAME_CORES" > /sys/fs/cgroup/cpuset/game/cpuset.cpus
+
+
+# -- Move *all* daemons and kernel threads robustly.
+
+echo " * Moving system daemons and kernel threads to housekeeping..."
+
+echo 1 > /sys/fs/cgroup/cpuset/housekeeping/tasks 2>/dev/null || true
+echo 2 > /sys/fs/cgroup/cpuset/housekeeping/tasks 2>/dev/null || true
+
+echo " * Applied cpuset isolation."

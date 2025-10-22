@@ -1,0 +1,18 @@
+#!/sbin/openrc-run
+
+description="Dynamic cpuset configuration based on detected lower priority cores"
+
+depend() {
+    need localmount
+    after irq-pin
+}
+
+start() {
+    ebegin "Applying dynamic cpuset isolation"
+    if command -v autocpuset >/dev/null 2>&1; then
+        autocpuset || ewarn "autocpuset failed"
+    else
+        ewarn "autocpuset not found in PATH"
+    fi
+    eend 0
+}
