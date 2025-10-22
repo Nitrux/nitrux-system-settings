@@ -56,11 +56,16 @@ normalize_to_kb() {
 }
 
 expand_list() {
-    echo "$1" | tr ',' '\n' | \
-    sed -E 's/([0-9]+)-([0-9]+)/{\1..\2}/g' | \
-    xargs -n1 echo 2>/dev/null | sort -n
+    echo "$1" | tr ',' '\n' | while read -r range; do
+        if [[ "$range" == *-* ]]; then
+            # It's a range like "0-15", use seq
+            seq "${range%-*}" "${range#*-*}"
+        else
+            # It's a single number like "8", just echo it
+            echo "$range"
+        fi
+    done | sort -n
 }
-
 
 # -- Check permissions.
 
