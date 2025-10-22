@@ -1,0 +1,2 @@
+# Fix brightness keys for MSI Stealth 16 laptop, maybe fixes keys for other MSI laptops.
+ACTION=="add|change", KERNEL=="event*", ATTRS{name}=="Video Bus", ENV{ID_INPUT_KEYBOARD}="1"

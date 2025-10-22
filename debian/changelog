@@ -1,3 +1,9 @@
+nitrux-system-settings (0.1.2) nitrux; urgency=medium
+
+  * Add udev rule to fix brightness keys in MSI Stealth A13VG thta somehow stopped working.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Wed, 22 Oct 2025 01:45:00 -0500
+
 nitrux-system-settings (0.1.1) nitrux; urgency=medium
 
   * Fix sort output in autopin-irqs.
