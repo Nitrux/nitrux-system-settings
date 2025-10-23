@@ -24,11 +24,6 @@
 
 
 # Auto-generates an /etc/conf.d/irq-pin file by analyzing CPU topology.
-#
-# - For V-Cache CPUs (e.g., 7900X3D):
-#   Finds the cores with the *smallest* L3 cache and pins IRQs there.
-# - For standard CPUs:
-#   Pins IRQs to the *last* logical core and its SMT sibling.
 
 
 # -- Exit on errors.
@@ -39,7 +34,7 @@ set -euo pipefail
 # -- Configuration.
 #   -- Add any other driver names you want to pin.
 
-DEVICE_PATTERNS="amdgpu|nvidia|nvme[0-9]+q?[0-9]*|xhci_hcd|ehci_hcd|r8169|r8125|e1000e|igc|r8152|iwlwifi|rtw88|mt76|ath9k|ath10k|snd_hda_intel|snd_sof_pci|btusb"
+DEVICE_PATTERNS="amdgpu|nvidia|xhci_hcd|ehci_hcd|r8169|r8125|e1000e|igc|r8152|iwlwifi|rtw88|mt76|ath9k|ath10k|snd_hda_intel|snd_sof_pci|btusb"
 CONFIG_FILE="/etc/conf.d/irq-pin"
 
 
@@ -67,6 +62,62 @@ expand_list() {
     done | LC_ALL=C sort
 }
 
+find_housekeeping_cores() {
+    local ec="" ONLINE
+    ONLINE="$(expand_list "$(cat /sys/devices/system/cpu/online)")"
+
+    for p in /sys/devices/system/cpu/cpu[0-9]*; do
+        local id s
+        id="${p##*/cpu}"
+        s="$(cat "$p/topology/thread_siblings_list" 2>/dev/null || true)"
+        case "$s" in *","*|*"-"*) : ;; *)
+            printf "%s\n" "$ONLINE" | grep -qx "$id" && ec="$ec $id"
+            ;;
+        esac
+    done
+    if [ -n "$ec" ]; then
+        echo "Detected: Intel E-Cores (single-threaded)" >&2
+        # shellcheck disable=SC2086
+        printf "%s\n" $ec
+        return
+    fi
+
+    local L3_INDEX_NAME=""
+    for cache_dir in /sys/devices/system/cpu/cpu0/cache/index*; do
+        [ -f "$cache_dir/level" ] && [ "$(cat "$cache_dir/level")" = 3 ] && { L3_INDEX_NAME="$(basename "$cache_dir")"; break; }
+    done
+
+    if [ -n "$L3_INDEX_NAME" ]; then
+        local L3_SIZES_KB MIN_L3_SIZE_KB MAX_L3_SIZE_KB
+        L3_SIZES_KB=$(for f in /sys/devices/system/cpu/cpu[0-9]*/cache/"$L3_INDEX_NAME"/size; do
+            [ -f "$f" ] && normalize_to_kb "$f"
+        done | LC_ALL=C sort -n -u)
+        MIN_L3_SIZE_KB="$(printf "%s\n" "$L3_SIZES_KB" | head -n1)"
+        MAX_L3_SIZE_KB="$(printf "%s\n" "$L3_SIZES_KB" | tail -n1)"
+        if [ -n "$MIN_L3_SIZE_KB" ] && [ "$MIN_L3_SIZE_KB" != "$MAX_L3_SIZE_KB" ]; then
+            echo "Detected: Asymmetric L3 cache (V-Cache/CCD)" >&2
+            local cpu_list=()
+            for p in /sys/devices/system/cpu/cpu[0-9]*; do
+                local id size_kb f
+                id="${p##*/cpu}"
+                f="$p/cache/$L3_INDEX_NAME/size"
+                if [ -f "$f" ]; then
+                    size_kb="$(normalize_to_kb "$f")"
+                    if [ "$size_kb" -eq "$MIN_L3_SIZE_KB" ] && printf "%s\n" "$ONLINE" | grep -qx "$id"; then
+                        cpu_list+=("$id")
+                    fi
+                fi
+            done
+            printf "%s\n" "${cpu_list[@]}"
+            return
+        fi
+    fi
+
+    echo "Detected: Standard CPU (uniform topology)" >&2
+    printf "%s\n" "$ONLINE" | tail -n1
+}
+
+
 # -- Check permissions.
 
 if [ "$EUID" -ne 0 ]; then
@@ -83,98 +134,12 @@ trap 'rm -f "$TMP_FILE"' EXIT
 echo "Starting IRQ pin configuration generator..."
 
 TARGET_CPUS=()
-CPU_TYPE_MSG=""
-ECORES_FOUND=0
 
 
-# -- Step 1: Find the L3 cache index name (e.g., "index3").
+# -- Step 1: Detecting housekeeping cores.
 
-if [ -f "/sys/devices/system/cpu/cpu0/topology/core_type" ]; then
-    echo "Detected Intel Hybrid topology..."
-    for cpu_path in /sys/devices/system/cpu/cpu[0-9]*; do
-        core_type_file="$cpu_path/topology/core_type"
-        # E-cores are type "2"
-        if [ -f "$core_type_file" ] && [ "$(cat "$core_type_file")" == "2" ]; then
-             cpu_num=$(basename "$cpu_path" | tr -cd '0-9')
-             TARGET_CPUS+=("$cpu_num")
-             ECORES_FOUND=1
-        fi
-    done
-    
-    if [ $ECORES_FOUND -eq 1 ]; then
-        CPU_TYPE_MSG="Intel Hybrid (E-cores identified)"
-        echo "Found E-cores: ${TARGET_CPUS[*]}"
-    else
-        echo "Hybrid topology detected, but no E-cores found? Falling back to L3 logic."
-    fi
-fi
-
-
-# -- Step 2: Get all unique L3 cache sizes.
-
-if [ $ECORES_FOUND -eq 0 ]; then
-    echo "No E-cores found, analyzing L3 cache topology..."
-    L3_INDEX_NAME=""
-    for cache_dir in /sys/devices/system/cpu/cpu0/cache/index*; do
-        if [ -f "$cache_dir/level" ] && [ "$(cat "$cache_dir/level")" = "3" ]; then
-            L3_INDEX_NAME=$(basename "$cache_dir")
-            break
-        fi
-    done
-
-    if [ -z "$L3_INDEX_NAME" ]; then
-      echo "Error: Could not determine L3 cache path. Aborting." >&2
-      exit 1
-    fi
-    echo "Found L3 cache at: $L3_INDEX_NAME"
-
-    L3_SIZES_KB=$(
-        (for f in /sys/devices/system/cpu/cpu[0-9]*/cache/"$L3_INDEX_NAME"/size; do
-            [ -f "$f" ] && normalize_to_kb "$f"
-        done) | sort -n -u
-    )
-
-    MIN_L3_SIZE_KB=$(echo "$L3_SIZES_KB" | head -n1)
-    MAX_L3_SIZE_KB=$(echo "$L3_SIZES_KB" | tail -n1)
-
-    if [ -z "$MIN_L3_SIZE_KB" ]; then
-        echo "Error: Could not determine L3 cache sizes." >&2
-        exit 1
-    fi
-
-    if [ "$MIN_L3_SIZE_KB" == "$MAX_L3_SIZE_KB" ]; then
-      
-      # -- Standard CPU logic.
-
-      CPU_TYPE_MSG="Standard CPU (uniform L3 cache: ${MIN_L3_SIZE_KB}K)"
-      echo "Detected: $CPU_TYPE_MSG"
-      
-      LAST_ONLINE_CPU=$(cat /sys/devices/system/cpu/online | tr ',' '\n' | cut -d'-' -f2 | sort -nr | head -n1)
-      TARGET_CPUS+=("$LAST_ONLINE_CPU")
-
-    else
-      
-      # -- V-Cache / Asymmetric L3 logic.
-
-      CPU_TYPE_MSG="Asymmetric L3 cache (V-Cache/CCD) detected"
-      echo "Detected: $CPU_TYPE_MSG"
-      echo "  Performance L3: ${MAX_L3_SIZE_KB}K"
-      echo "  Standard L3:    ${MIN_L3_SIZE_KB}K"
-      
-      # Find all CPUs with the *smallest* L3 cache
-      for cpu_path in /sys/devices/system/cpu/cpu[0-9]*; do
-        cpu_num=$(basename "$cpu_path" | tr -cd '0-9')
-        size_file="$cpu_path/cache/$L3_INDEX_NAME/size"
-        
-        if [ -f "$size_file" ]; then
-            size_kb=$(normalize_to_kb "$size_file")
-            if [ "$size_kb" == "$MIN_L3_SIZE_KB" ]; then
-              TARGET_CPUS+=("$cpu_num")
-            fi
-        fi
-      done
-    fi
-fi
+echo "Analyzing CPU topology..."
+mapfile -t TARGET_CPUS < <(find_housekeeping_cores)
 
 if [ ${#TARGET_CPUS[@]} -eq 0 ]; then
   echo "Error: Failed to find any target CPUs." >&2
@@ -184,7 +149,7 @@ fi
 
 # -- Step 3: Select one core from the target list (the last one) and find its SMT siblings.
 
-HOUSEKEEPING_CORE=${TARGET_CPUS[-1]}
+HOUSEKEEPING_CORE="${TARGET_CPUS[${#TARGET_CPUS[@]}-1]}"
 SIBLINGS_FILE="/sys/devices/system/cpu/cpu$HOUSEKEEPING_CORE/topology/thread_siblings_list"
 
 if [ ! -f "$SIBLINGS_FILE" ]; then
@@ -232,7 +197,6 @@ echo "Writing configuration..."
 {
   echo "# Auto-generated by $0 on $(date)"
   echo "#"
-  echo "# Detected Topology: $CPU_TYPE_MSG"
   echo "# Housekeeping CPUs (target for all IRQs): $CPUSET"
   echo ""
   echo "DEVICES=\"$DEVICES\""

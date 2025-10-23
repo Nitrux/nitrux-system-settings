@@ -1,3 +1,11 @@
+nitrux-system-settings (0.1.8) nitrux; urgency=medium
+
+  * Improve topology detection in autopin-irqs.
+  * Remove nvme from devices list for IRQ isolation.
+  * Fix nx-perf-run looking for the wrong cgroup.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Thu, 23 Oct 2025 01:31:00 -0500
+
 nitrux-system-settings (0.1.7) nitrux; urgency=medium
 
   * Fix irq-pin.
