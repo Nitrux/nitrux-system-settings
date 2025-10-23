@@ -30,7 +30,7 @@ set -e
 
 # -- Run cmd on the “performance” set.
 
-grp="/sys/fs/cgroup/cpuset/game"
+grp="/sys/fs/cgroup/game"
 
 [ -d "$grp" ] || exec "$@"
 

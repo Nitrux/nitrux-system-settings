@@ -1,3 +1,10 @@
+nitrux-system-settings (0.1.9) nitrux; urgency=medium
+
+  * Fix cgroup permissions in autocpuset.
+  * Fix cgroup path in nx-perf-run.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Thu, 23 Oct 2025 04:40:00 -0500
+
 nitrux-system-settings (0.1.8) nitrux; urgency=medium
 
   * Improve topology detection in autopin-irqs.

@@ -180,4 +180,8 @@ echo " * Moving system daemons and kernel threads to housekeeping..."
 printf 1 > "$BASE/housekeeping/cgroup.procs" 2>/dev/null || true
 printf 2 > "$BASE/housekeeping/cgroup.procs" 2>/dev/null || true
 
+chown root:wheel "$BASE/game"
+chown root:wheel "$BASE/game/cgroup.procs"
+chmod g+w "$BASE/game/cgroup.procs"
+
 echo " * Applied cpuset isolation."
