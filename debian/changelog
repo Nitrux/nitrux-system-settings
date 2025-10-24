@@ -1,3 +1,9 @@
+nitrux-system-settings (0.2.0) nitrux; urgency=medium
+
+  * Remove irq-pin, cpuset-balance, autopin-irq, autocpuset, nx-perf-run.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Thu, 23 Oct 2025 21:50:00 -0500
+
 nitrux-system-settings (0.1.9) nitrux; urgency=medium
 
   * Fix cgroup permissions in autocpuset.
