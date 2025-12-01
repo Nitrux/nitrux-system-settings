@@ -11,6 +11,6 @@ Package: nitrux-system-settings
 Architecture: all
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Conflicts: nx-desktop-settings
-Description: Defaults settings for Nitrux
- Default settings for Nitrux.
+Description: Defaults system settings for Nitrux
+ Default system settings for Nitrux.
 
