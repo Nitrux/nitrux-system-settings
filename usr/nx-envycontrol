@@ -31,32 +31,41 @@ set -eu
 # -- Set program name.
 
 TOOL_NAME="overlay-envycontrol"
-LOG_FILE="/tmp/${TOOL_NAME}.log"
 
-log() {
-	echo "[$(date '+%F %T')] $*" >> "$LOG_FILE"
-}
+
+# -- Helper to grab the target mode from arguments for notifications.
+
+TARGET_MODE="Unknown"
+for arg in "$@"; do
+    if [[ "$arg" =~ ^(integrated|hybrid|nvidia)$ ]]; then
+        TARGET_MODE="$arg"
+        break
+    fi
+done
 
 
 # -- Functions.
 
 overlay_ch() {
-	local ROOT=("pkexec" "/usr/sbin/overlayroot-chroot" "$@")
+    local ROOT=("pkexec" "/usr/sbin/overlayroot-chroot" "$@")
 
-	if ! command -v "${ROOT[0]}" >/dev/null 2>&1; then
-		echo "[$(date '+%F %T')] Error: '${ROOT[0]}' command not found." >> "$LOG_FILE"
-		echo "Error: '${ROOT[0]}' command not found. Please make sure it's installed and try again." >> "$LOG_FILE"
-		return 1
-	fi
+    if ! command -v "${ROOT[0]}" >/dev/null 2>&1; then
+        local MSG="Error: '${ROOT[0]}' command not found."
+        echo "$MSG"
+        notify-send -u critical -i "dialog-error" "$TOOL_NAME Error" "$MSG"
+        return 1
+    fi
+    
+    set +e
+    set -o pipefail
 
-	{
-		echo "[$(date '+%F %T')] Running command: ${ROOT[*]}"
-		"${ROOT[@]}"
-		echo "[$(date '+%F %T')] Command succeeded: ${ROOT[*]}"
-	} >> "$LOG_FILE" 2>&1 || {
-		echo "[$(date '+%F %T')] Command failed: ${ROOT[*]}" >> "$LOG_FILE"
-		return 1
-	}
+    "${ROOT[@]}"
+    EXIT_CODE=$?
+
+    set +o pipefail
+    set -e
+
+    return "$EXIT_CODE"
 }
 
 
@@ -67,33 +76,66 @@ TARGET_DIST="nitrux"
 
 #   ====== START ======
 
-# -- Ensure this utility runs in Nitrux.
-# -- Exit if the value is not 'nitrux'.
+# -- Ensure this utility runs in Nitrux and exit if the value is not 'nitrux'.
 
-if [[ "$CURRENT_DIST" == "$TARGET_DIST" ]]; then
-	echo "This utility is running in $(echo "$TARGET_DIST" | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2))}'), continuing..."
-else
-	notify-send -a "$TOOL_NAME" -u critical --action=Understood -i "preferences-system-login" "$TOOL_NAME is intended to work exclusively in $(echo "$TARGET_DIST" | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2))}')." "Using this utility in $(echo "$CURRENT_DIST" | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2))}') will break it and not work at all, quitting."
-	exit 1
+if [[ "$CURRENT_DIST" != "$TARGET_DIST" ]]; then
+    MSG="Using this utility in $CURRENT_DIST is not supported."
+    notify-send -a "$TOOL_NAME" -u critical --action=Understood -i "preferences-system-login" "$TOOL_NAME Error" "$MSG"
+    echo "$MSG"
+    exit 1
 fi
 
 
 # -- To successfully use EnvyControl and switch to integrated, hybrid, or nvidia modes, we must run it using overlayroot-chroot.
 # -- Pass the arguments to the EnvyControl executable.
 
-overlay_ch mount -t devtmpfs dev /dev
+if ! overlay_ch mount -t devtmpfs dev /dev >/dev/null 2>&1; then
+    echo "Error: Failed to mount /dev"
+    exit 1
+fi
 
 NX_VAR_LIB_DEVICE="$(/usr/sbin/findfs LABEL=NX_VAR_LIB 2>/dev/null || true)"
 
 if [[ -z "$NX_VAR_LIB_DEVICE" ]]; then
-	log "Error: LABEL=NX_VAR_LIB not found by findfs"
-	echo "Error: LABEL=NX_VAR_LIB not found, quitting." >> "$LOG_FILE"
-	exit 1
+    MSG="Error: LABEL=NX_VAR_LIB not found by findfs"
+    echo "$MSG"
+    notify-send -u critical -i "dialog-error" "$TOOL_NAME Error" "$MSG"
+    exit 1
 fi
 
-overlay_ch mount -t auto "$NX_VAR_LIB_DEVICE" /var/lib
+if ! overlay_ch mount -t auto "$NX_VAR_LIB_DEVICE" /var/lib >/dev/null 2>&1; then
+    echo "Error: Failed to mount /var/lib"
+    exit 1
+fi
 
-overlay_ch envycontrol "$@"
-overlay_ch sync
+
+# --- Pass the query to envycontrol.
+
+if overlay_ch envycontrol "$@"; then
+    EC_EXIT_CODE=0
+else
+    EC_EXIT_CODE=$?
+fi
+
+overlay_ch sync >/dev/null 2>&1
+
+if [ $EC_EXIT_CODE -eq 0 ]; then
+    
+    if [[ "$TARGET_MODE" != "Unknown" ]]; then
+        TITLE="GPU Mode Switched"
+        BODY="Operation successful. Please reboot for changes to take effect."
+        ICON="system-reboot"
+    else
+        TITLE="EnvyControl"
+        BODY="Command executed successfully."
+        ICON="dialog-information"
+    fi
+    
+    notify-send -u normal -i "$ICON" "$TITLE" "$BODY"
+
+else
+    notify-send -u critical -i "dialog-error" "EnvyControl Failed" "The command failed with exit code $EC_EXIT_CODE."
+    exit $EC_EXIT_CODE
+fi
 
 #   ====== END ======

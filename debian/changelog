@@ -1,6 +1,12 @@
+nitrux-system-settings (0.2.3) nitrux; urgency=medium
+
+  * Rename overlay-envycontrol.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Sat, 06 Dec 2025 07:25:00 -0500
+
 nitrux-system-settings (0.2.2) nitrux; urgency=medium
 
-  * Add package manager policy, use case and overlayr-envycontrol scripts.
+  * Add package manager policy, use case and overlay-envycontrol scripts.
 
  -- Uri Herrera <uri_herrera@nxos.org>  Sat, 06 Dec 2025 07:25:00 -0500
 
