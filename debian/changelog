@@ -1,14 +1,20 @@
+nitrux-system-settings (0.2.6) nitrux; urgency=medium
+
+  * Remove ignored sysctl setting.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Tue, 09 Dec 2025 23:03:00 -0500
+
 nitrux-system-settings (0.2.5) nitrux; urgency=medium
 
   * Update NetworkManager configuration to use dnscrypt-proxy.
 
- -- Uri Herrera <uri_herrera@nxos.org>  Mon, 09 Dec 2025 22:23:00 -0500
+ -- Uri Herrera <uri_herrera@nxos.org>  Tue, 09 Dec 2025 22:23:00 -0500
 
 nitrux-system-settings (0.2.4) nitrux; urgency=medium
 
   * Add NetworkManager configuration here.
 
- -- Uri Herrera <uri_herrera@nxos.org>  Mon, 09 Dec 2025 21:05:00 -0500
+ -- Uri Herrera <uri_herrera@nxos.org>  Tue, 09 Dec 2025 21:05:00 -0500
 
 nitrux-system-settings (0.2.3) nitrux; urgency=medium
 
