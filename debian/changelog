@@ -1,3 +1,9 @@
+nitrux-system-settings (0.2.7) nitrux; urgency=medium
+
+  * Add NetworkManager dispatcher to dynamically adjust dnscrypt-proxy relays.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Tue, 09 Dec 2025 23:35:00 -0500
+
 nitrux-system-settings (0.2.6) nitrux; urgency=medium
 
   * Remove ignored sysctl setting.

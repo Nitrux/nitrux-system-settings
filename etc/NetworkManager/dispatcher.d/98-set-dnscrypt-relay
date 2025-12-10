@@ -1,0 +1,108 @@
+#!/usr/bin/env sh
+
+#############################################################################################################################################################################
+#   The license used for this file and its contents is: BSD-3-Clause                                                                                                        #
+#                                                                                                                                                                           #
+#   Copyright <2025> <Uri Herrera <uri_herrera@nxos.org>>                                                                                                                   #
+#                                                                                                                                                                           #
+#   Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:                          #
+#                                                                                                                                                                           #
+#    1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.                                        #
+#                                                                                                                                                                           #
+#    2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer                                      #
+#       in the documentation and/or other materials provided with the distribution.                                                                                         #
+#                                                                                                                                                                           #
+#    3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software                    #
+#       without specific prior written permission.                                                                                                                          #
+#                                                                                                                                                                           #
+#    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,                      #
+#    THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS                  #
+#    BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE                 #
+#    GOODS OR SERVICES; LOSS OF USE, DATA,   OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,                      #
+#    STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.   #
+#############################################################################################################################################################################
+
+
+# -- Check for NetworkManager status (run only when the network is up or a VPN is up).
+
+[ "$2" = "up" ] || [ "$2" = "vpn-up" ] || exit 0
+
+
+# -- Ensure required dependencies exist.
+
+for cmd in jq curl logger rc-service; do
+    command -v "$cmd" >/dev/null 2>&1 || exit 0
+done
+
+CONFIG_FILE="/etc/dnscrypt-proxy/dnscrypt-proxy.toml"
+TMP_FILE="${CONFIG_FILE}.tmp"
+
+
+# -- Use a faster, lighter GeoIP service to get country code (CC).
+# -- Using 'ipinfo.io' for example; replace with any service that gives a 'country' field.
+#    -- ⚠️ A Note on Privacy: This method sends your IP address to a third-party service (ipinfo.io). This is a common practice and generally low-risk, but it's important to be aware of it.
+
+IP_API="https://ipinfo.io/json"
+TIMEOUT=5
+
+COUNTRY_CODE="$(curl -fsSL --max-time "$TIMEOUT" "$IP_API" | jq -r '.country' | tr '[:upper:]' '[:lower:]' || true)"
+
+[ -z "$COUNTRY_CODE" ] || [ "$COUNTRY_CODE" = "null" ] && {
+    logger -t dnscrypt-relay "location detect failed, keeping existing relays"
+    exit 0
+}
+
+
+# -- Determine optimal relay group based on country code.
+
+RELAY_1='anon-cs-fr'
+RELAY_2='anon-cs-de'
+
+case "$COUNTRY_CODE" in
+    us|ca|mx)
+        RELAY_1='anon-cs-us-west'
+        RELAY_2='anon-cs-us-east'
+        ;;
+    fr|de|nl|se|uk)
+        RELAY_1='anon-cs-fr'
+        RELAY_2='anon-cs-de'
+        ;;
+    au|jp|sg)
+        RELAY_1='anon-cs-sg'
+        RELAY_2='anon-cs-jp'
+        ;;
+esac
+
+
+# -- 3. Generate new routes block.
+
+NEW_BLOCK="# BEGIN AUTO ANONYMIZED DNS
+[anonymized_dns]
+skip_incompatible = true
+routes = [
+    { server_name='adguard-dns', via=['${RELAY_1}', '${RELAY_2}'] },
+    { server_name='quad9-dnscrypt-ip4-filter-pri', via=['${RELAY_1}', '${RELAY_2}'] },
+    { server_name='quad9-dnscrypt-ip6-filter-pri', via=['${RELAY_1}', '${RELAY_2}'] },
+    { server_name='ahadns-doh-la',                via=['${RELAY_1}', '${RELAY_2}'] }
+]
+# END AUTO ANONYMIZED DNS"
+
+
+# -- Rewrite the 'routes' section in the config file and only restart dnscrypt-proxy when something actually changed.
+
+awk -v block="$NEW_BLOCK" '
+    BEGIN { inblock = 0 }
+    /^# BEGIN AUTO ANONYMIZED DNS/ { print block; inblock = 1; next }
+    /^# END AUTO ANONYMIZED DNS/ { inblock = 0; next }
+    inblock == 1 { next }
+    { print }
+' "$CONFIG_FILE" > "$TMP_FILE"
+
+if ! cmp -s "$CONFIG_FILE" "$TMP_FILE"; then
+    mv "$TMP_FILE" "$CONFIG_FILE"
+    logger -t dnscrypt-relay "relays updated to ${RELAY_1}/${RELAY_2} (country: $COUNTRY_CODE)"
+    rc-service dnscrypt-proxy restart
+else
+    rm -f "$TMP_FILE"
+    logger -t dnscrypt-relay "relays unchanged for $COUNTRY_CODE"
+fi
