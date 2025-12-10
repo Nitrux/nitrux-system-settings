@@ -1,3 +1,9 @@
+nitrux-system-settings (0.2.4) nitrux; urgency=medium
+
+  * Add NetworkManager configuration here.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Mon, 09 Dec 2025 21:05:00 -0500
+
 nitrux-system-settings (0.2.3) nitrux; urgency=medium
 
   * Rename overlay-envycontrol.
