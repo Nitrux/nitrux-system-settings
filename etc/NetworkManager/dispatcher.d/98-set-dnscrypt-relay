@@ -34,7 +34,7 @@ for cmd in jq curl logger rc-service; do
     command -v "$cmd" >/dev/null 2>&1 || exit 0
 done
 
-CONFIG_FILE="/etc/dnscrypt-proxy/dnscrypt-proxy.toml"
+CONFIG_FILE="/etc/dnscrypt-proxy/nitrux-dnscrypt-proxy.toml"
 TMP_FILE="${CONFIG_FILE}.tmp"
 
 

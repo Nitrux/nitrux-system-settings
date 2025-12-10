@@ -1,4 +1,4 @@
-nitrux-system-settings (0.3.0.) nitrux; urgency=medium
+nitrux-system-settings (0.3.0) nitrux; urgency=medium
 
   * Fix NetworkManager dispatcher.
 
