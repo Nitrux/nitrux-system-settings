@@ -1,3 +1,9 @@
+nitrux-system-settings (0.2.9) nitrux; urgency=medium
+
+  * Split files for NetworkManager to ignore DNS servers provided by DHCP.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Wed, 10 Dec 2025 04:34:00 -0500
+
 nitrux-system-settings (0.2.8) nitrux; urgency=medium
 
   * Force NetworkManager to ignore DNS servers provided by DHCP.
