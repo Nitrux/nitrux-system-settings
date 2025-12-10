@@ -1,3 +1,9 @@
+nitrux-system-settings (0.3.0.) nitrux; urgency=medium
+
+  * Fix NetworkManager dispatcher.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Wed, 10 Dec 2025 04:39:00 -0500
+
 nitrux-system-settings (0.2.9) nitrux; urgency=medium
 
   * Split files for NetworkManager to ignore DNS servers provided by DHCP.

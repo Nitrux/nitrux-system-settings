@@ -80,7 +80,7 @@ NEW_BLOCK="# BEGIN AUTO ANONYMIZED DNS
 [anonymized_dns]
 skip_incompatible = true
 routes = [
-    { server_name='adguard-dns', via=['${RELAY_1}', '${RELAY_2}'] },
+    { server_name='adguard-dns-doh', via=['${RELAY_1}', '${RELAY_2}'] },
     { server_name='quad9-dnscrypt-ip4-filter-pri', via=['${RELAY_1}', '${RELAY_2}'] },
     { server_name='quad9-dnscrypt-ip6-filter-pri', via=['${RELAY_1}', '${RELAY_2}'] },
     { server_name='ahadns-doh-la',                via=['${RELAY_1}', '${RELAY_2}'] }
