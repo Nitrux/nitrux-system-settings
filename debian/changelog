@@ -1,3 +1,9 @@
+nitrux-system-settings (0.3.3) nitrux; urgency=medium
+
+  * Remove ignored keys for NetworkManager.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Sat, 13 Dec 2025 08:17:00 -0500
+
 nitrux-system-settings (0.3.2) nitrux; urgency=medium
 
   * Put the scripts in the correct directory.
