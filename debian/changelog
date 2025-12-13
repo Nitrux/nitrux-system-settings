@@ -1,3 +1,9 @@
+nitrux-system-settings (0.3.2) nitrux; urgency=medium
+
+  * Put the scripts in the correct directory.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Sat, 13 Dec 2025 04:45:00 -0500
+
 nitrux-system-settings (0.3.1) nitrux; urgency=medium
 
   * Disable dhcpcd in NetworkManager to remove DNS leaks and properly use dnscrypt-proxy.
