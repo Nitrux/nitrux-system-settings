@@ -1,11 +1,16 @@
-nitrux-system-settings (0.3.5) nitrux; urgency=medium
+nitrux-system-settings (0.3.6) nitrux; urgency=medium
 
-  * Update NetworkManager configuration to chnage the keyfile directory here instead of iso-tool.
   * Use kdialog to display a dialog indicating the minimum requirments.
   * Add dynamic setting of power profile using power-profiles-daemon.
   * Add package dependencies.
 
  -- Uri Herrera <uri_herrera@nxos.org>  Tue, 15 Dec 2025 16:25:00 -0500
+
+nitrux-system-settings (0.3.5) nitrux; urgency=medium
+
+  * Update NetworkManager configuration to chnage the keyfile directory here instead of iso-tool.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Tue, 15 Dec 2025 11:51:00 -0500
 
 nitrux-system-settings (0.3.4) nitrux; urgency=medium
 
