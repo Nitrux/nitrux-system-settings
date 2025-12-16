@@ -1,3 +1,9 @@
+nitrux-system-settings (0.3.4) nitrux; urgency=medium
+
+  * Add dynamic power management for devices with batteries.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Tue, 15 Dec 2025 11:04:00 -0500
+
 nitrux-system-settings (0.3.3) nitrux; urgency=medium
 
   * Remove ignored keys for NetworkManager.

@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright 2024-2025 <Nitrux Latinoamericana S.C. <hello@nxos.org>>
+
+
+# -- Variables.
+
+CRITICAL_LEVEL=20
+BAT_PATH=$(find /sys/class/power_supply/ -name "BAT*" | head -n 1)
+
+
+# -- Functions.
+
+get_ac_online() {
+    local ac_type
+    local ac_dir
+
+    ac_type=$(grep -l "^Mains$" /sys/class/power_supply/*/type 2>/dev/null | head -n 1)
+    ac_dir=${ac_type%/type}
+
+    if [ -n "$ac_dir" ] && [ -r "$ac_dir/online" ]; then
+        cat "$ac_dir/online"
+    else
+        printf '%s\n' 1
+    fi
+}
+
+handle_power_source_event() {
+    local status
+    local current_profile
+
+    status=$(get_ac_online)
+    current_profile=$(powerprofilesctl get)
+
+    if [ "$status" -eq 0 ]; then
+        if [ "$current_profile" != "balanced" ]; then
+            powerprofilesctl set balanced
+            notify-send -u low -i "battery-100" "Power Profile" "Switched to Balanced"
+        fi
+    else
+        if [ "$current_profile" != "performance" ]; then
+            powerprofilesctl set performance
+            notify-send -u low -i "ac-adapter" "Power Profile" "Switched to Performance"
+        fi
+    fi
+}
+
+handle_battery_level_event() {
+    local status
+    local capacity
+    local current_profile
+
+    status=$(get_ac_online)
+
+    if [ "$status" -eq 0 ] && [ -r "$BAT_PATH/capacity" ]; then
+        capacity=$(cat "$BAT_PATH/capacity")
+        current_profile=$(powerprofilesctl get)
+
+        if [ "$capacity" -lt "$CRITICAL_LEVEL" ]; then
+            if [ "$current_profile" != "power-saver" ]; then
+                powerprofilesctl set power-saver
+                notify-send -u critical -i "battery-low" "Battery Critical ($capacity%)" "Forcing Power Saver Mode"
+            fi
+        fi
+    fi
+}
+
+
+# -- Monitor the power supply status change and apply the adequate power profile.
+
+handle_power_source_event
+
+upower --monitor | grep --line-buffered -E "line-power|percentage" | while read -r line; do
+    if [[ "$line" == *"line-power"* ]]; then
+        handle_power_source_event
+    elif [[ "$line" == *"percentage"* ]]; then
+        handle_battery_level_event
+    fi
+done
