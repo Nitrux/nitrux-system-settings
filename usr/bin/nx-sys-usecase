@@ -30,18 +30,64 @@ if grep -q "hypervisor" /proc/cpuinfo; then
 fi
 
 if [ "$IS_VM" -eq 0 ]; then
-    TOTAL_RAM_MB=$(grep MemTotal /proc/meminfo | awk '{print $2 / 1024}')
+    TOTAL_RAM_MB=$(awk '/MemTotal/ {printf "%d", $2 / 1024}' /proc/meminfo)
+    TOTAL_RAM_GB=$(awk '/MemTotal/ {printf "%.1f", $2 / 1024 / 1024}' /proc/meminfo)
     PHYSICAL_CORES=$(lscpu | grep "^Core(s) per socket:" | awk '{print $4}')
     THREADS=$(lscpu | grep "^CPU(s):" | awk '{print $2}')
 
-    if (( $(echo "$TOTAL_RAM_MB < 4096" | bc -l) )) || (( PHYSICAL_CORES < 4 )) || (( THREADS < 4 )); then
+    LOW_RAM=0
+    LOW_CORES=0
+    LOW_THREADS=0
+
+    if (( TOTAL_RAM_MB < 4096 )); then
+        LOW_RAM=1
+    fi
+    if (( PHYSICAL_CORES < 4 )); then
+        LOW_CORES=1
+    fi
+    if (( THREADS < 4 )); then
+        LOW_THREADS=1
+    fi
+
+    if (( LOW_RAM || LOW_CORES || LOW_THREADS )); then
         notify-send \
             -a "System Message" \
             -u critical \
             --action=Understood \
             -i "dialog-warning" \
             "System Specs Warning" \
-            "This system has less than 4GB of RAM, 4 physical cores, or 4 threads. Performance will be limited. Nitrux does not target low-spec hardware."
+            "This system does not meet the minimum recommended specifications. Dismiss to view details."
+
+        TABLE_ROWS=""
+
+        if (( LOW_RAM )); then
+            TABLE_ROWS+="<tr style='background-color: #ffcccc;'><td>RAM</td><td>4 GB</td><td>$TOTAL_RAM_GB GB</td></tr>"
+        else
+            TABLE_ROWS+="<tr><td>RAM</td><td>4 GB</td><td>$TOTAL_RAM_GB GB</td></tr>"
+        fi
+
+        if (( LOW_CORES )); then
+            TABLE_ROWS+="<tr style='background-color: #ffcccc;'><td>Physical Cores</td><td>4</td><td>$PHYSICAL_CORES</td></tr>"
+        else
+            TABLE_ROWS+="<tr><td>Physical Cores</td><td>4</td><td>$PHYSICAL_CORES</td></tr>"
+        fi
+
+        if (( LOW_THREADS )); then
+            TABLE_ROWS+="<tr style='background-color: #ffcccc;'><td>Threads</td><td>4</td><td>$THREADS</td></tr>"
+        else
+            TABLE_ROWS+="<tr><td>Threads</td><td>4</td><td>$THREADS</td></tr>"
+        fi
+
+        MSG="<p>This system does not meet the minimum recommended hardware specifications that we consider necessary to run Nitrux without harming the user experience. We highlight the components that do not meet the requirements.</p>"
+        MSG+="<table border='1' cellpadding='5'>"
+        MSG+="<tr><th>Component</th><th>Required</th><th>Detected</th></tr>"
+        MSG+="$TABLE_ROWS"
+        MSG+="</table><br>"
+        MSG+="<p>Performance will be limited. Nitrux does not target low-spec hardware.</p>"
+        MSG+="<p>Please review the documentation:<br>"
+        MSG+="<b>System Requirements: https://nxos.org/tutorial/how-to-install-nitrux/#system-requirements/</b></p>"
+
+        kdialog --title "System Specs Warning" --msgbox "$MSG" --geometry 550x350
     fi
 
     exit 0

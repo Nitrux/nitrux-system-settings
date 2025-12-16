@@ -6,75 +6,153 @@
 
 # -- Variables.
 
-CRITICAL_LEVEL=20
-BAT_PATH=$(find /sys/class/power_supply/ -name "BAT*" | head -n 1)
+umask 077
+
+CRITICAL_LEVEL=${CRITICAL_LEVEL:-25}
+BALANCED_MIN=${BALANCED_MIN:-26}
+BALANCED_MAX=${BALANCED_MAX:-75}
+PERF_ON_BATT_MIN=${PERF_ON_BATT_MIN:-76}
+
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/nitrux-power-manager"
+LOG_FILE="$STATE_DIR/nitrux-power-manager.log"
+LOCK_FILE="${XDG_RUNTIME_DIR:-$STATE_DIR}/nitrux-power-manager.lock"
+
+mkdir -p "$STATE_DIR"
+mkdir -p "$(dirname "$LOCK_FILE")"
+
+if [ "${NO_REDIRECT:-0}" != "1" ]; then
+    exec >>"$LOG_FILE" 2>&1
+fi
+
+if command -v flock >/dev/null 2>&1; then
+    exec 9>"$LOCK_FILE"
+    if ! flock -n 9; then
+        exit 0
+    fi
+else
+    if [ -e "$LOCK_FILE" ] && kill -0 "$(cat "$LOCK_FILE" 2>/dev/null)" 2>/dev/null; then
+        exit 0
+    fi
+    echo "$$" >"$LOCK_FILE"
+    trap 'rm -f "$LOCK_FILE"' EXIT
+fi
+
+printf '%s\n' "$(date -Is) start pid=$$"
+
+BAT_PATH=$(find /sys/class/power_supply/ -maxdepth 1 -name "BAT*" 2>/dev/null | head -n 1 || true)
 
 
 # -- Functions.
 
+has_battery() {
+    if [ -z "${BAT_PATH:-}" ]; then
+        BAT_PATH=$(find /sys/class/power_supply/ -maxdepth 1 -name "BAT*" 2>/dev/null | head -n 1 || true)
+    fi
+    [ -n "${BAT_PATH:-}" ] && [ -r "$BAT_PATH/capacity" ]
+}
+
+get_battery_capacity() {
+    if has_battery; then
+        cat "$BAT_PATH/capacity"
+    else
+        printf '%s\n' -1
+    fi
+}
+
 get_ac_online() {
-    local ac_type
-    local ac_dir
+    local p
 
-    ac_type=$(grep -l "^Mains$" /sys/class/power_supply/*/type 2>/dev/null | head -n 1)
-    ac_dir=${ac_type%/type}
+    for p in /sys/class/power_supply/*; do
+        [ -r "$p/type" ] || continue
+        if [ "$(cat "$p/type")" = "Mains" ] && [ -r "$p/online" ]; then
+            cat "$p/online"
+            return 0
+        fi
+    done
 
-    if [ -n "$ac_dir" ] && [ -r "$ac_dir/online" ]; then
-        cat "$ac_dir/online"
-    else
-        printf '%s\n' 1
+    for p in /sys/class/power_supply/*; do
+        [ -r "$p/online" ] || continue
+        if [ -r "$p/type" ] && [ "$(cat "$p/type")" = "Battery" ]; then
+            continue
+        fi
+        cat "$p/online"
+        return 0
+    done
+
+    printf '%s\n' 1
+}
+
+set_profile_if_needed() {
+    local target="$1" urgency="$2" icon="$3" body="$4"
+    local current
+    current=$(powerprofilesctl get 2>/dev/null || true)
+
+    if [ "$current" != "$target" ]; then
+        powerprofilesctl set "$target"
+        if command -v notify-send >/dev/null 2>&1; then
+            notify-send -a "System Message" -t 3000 -u "$urgency" -i "$icon" "Power Profile" "$body"
+        fi
+        printf '%s\n' "$(date -Is) profile: $current -> $target ($body)"
     fi
 }
 
-handle_power_source_event() {
-    local status
-    local current_profile
+apply_policy() {
+    local ac cap
+    ac=$(get_ac_online)
 
-    status=$(get_ac_online)
-    current_profile=$(powerprofilesctl get)
-
-    if [ "$status" -eq 0 ]; then
-        if [ "$current_profile" != "balanced" ]; then
-            powerprofilesctl set balanced
-            notify-send -u low -i "battery-100" "Power Profile" "Switched to Balanced"
+    if ! has_battery; then
+        if [ "$ac" -eq 1 ]; then
+            set_profile_if_needed "performance" "low" "ac-adapter" "AC detected (no battery): performance"
         fi
+        return 0
+    fi
+
+    if [ "$ac" -eq 1 ]; then
+        set_profile_if_needed "performance" "low" "ac-adapter" "AC detected: performance"
+        return 0
+    fi
+
+    cap=$(get_battery_capacity)
+
+    if [ "$cap" -lt 0 ]; then
+        return 0
+    fi
+
+    if [ "$cap" -ge "$PERF_ON_BATT_MIN" ]; then
+        set_profile_if_needed "performance" "low" "battery-100" "On battery (${cap}%): performance"
+    elif [ "$cap" -ge "$BALANCED_MIN" ] && [ "$cap" -le "$BALANCED_MAX" ]; then
+        set_profile_if_needed "balanced" "low" "battery-060" "On battery (${cap}%): balanced"
+    elif [ "$cap" -le "$CRITICAL_LEVEL" ]; then
+        set_profile_if_needed "power-saver" "critical" "battery-low" "On battery (${cap}%): power-saver"
     else
-        if [ "$current_profile" != "performance" ]; then
-            powerprofilesctl set performance
-            notify-send -u low -i "ac-adapter" "Power Profile" "Switched to Performance"
-        fi
+        set_profile_if_needed "balanced" "low" "battery-060" "On battery (${cap}%): balanced"
     fi
 }
 
-handle_battery_level_event() {
-    local status
-    local capacity
-    local current_profile
-
-    status=$(get_ac_online)
-
-    if [ "$status" -eq 0 ] && [ -r "$BAT_PATH/capacity" ]; then
-        capacity=$(cat "$BAT_PATH/capacity")
-        current_profile=$(powerprofilesctl get)
-
-        if [ "$capacity" -lt "$CRITICAL_LEVEL" ]; then
-            if [ "$current_profile" != "power-saver" ]; then
-                powerprofilesctl set power-saver
-                notify-send -u critical -i "battery-low" "Battery Critical ($capacity%)" "Forcing Power Saver Mode"
-            fi
-        fi
-    fi
+monitor_events() {
+    while IFS= read -r line; do
+        case "$line" in
+            *line-power*|*percentage*)
+                apply_policy
+                ;;
+        esac
+    done < <(stdbuf -oL upower --monitor 2>/dev/null)
 }
 
 
 # -- Monitor the power supply status change and apply the adequate power profile.
 
-handle_power_source_event
+apply_policy
 
-upower --monitor | grep --line-buffered -E "line-power|percentage" | while read -r line; do
-    if [[ "$line" == *"line-power"* ]]; then
-        handle_power_source_event
-    elif [[ "$line" == *"percentage"* ]]; then
-        handle_battery_level_event
-    fi
-done
+if has_battery; then
+    monitor_events
+else
+    while :; do
+        sleep 3600
+        if has_battery; then
+            apply_policy
+            monitor_events
+            exit 0
+        fi
+    done
+fi
