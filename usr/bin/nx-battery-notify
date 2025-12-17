@@ -1,0 +1,270 @@
+#!/usr/bin/env bash
+
+
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright 2024-2025 <Nitrux Latinoamericana S.C. <hello@nxos.org>>
+
+
+# -- Exit onr errors.
+
+set -euo pipefail
+
+
+# -- Variables.
+
+umask 077
+
+CHARGE_NOTIFY_LEVEL=${CHARGE_NOTIFY_LEVEL:-80}
+FULL_NOTIFY_LEVEL=${FULL_NOTIFY_LEVEL:-100}
+CRITICAL_LEVEL=${CRITICAL_LEVEL:-20}
+PLUGGED_REMIND_MINUTES=${PLUGGED_REMIND_MINUTES:-20}
+
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/nx-battery-notify"
+LOG_FILE="$STATE_DIR/nx-battery-notify.log"
+LOCK_FILE="${XDG_RUNTIME_DIR:-$STATE_DIR}/nx-battery-notify.lock"
+
+
+# -- Functions.
+
+mkdir -p "$STATE_DIR"
+mkdir -p "$(dirname "$LOCK_FILE")"
+
+if [ "${DEBUG:-0}" != "1" ]; then
+    exec >>"$LOG_FILE" 2>&1
+fi
+
+log() {
+    printf '%s\n' "$(date -Is) $*"
+}
+
+notify() {
+    local urgency="$1" icon="$2" title="$3" body="$4"
+    command -v notify-send >/dev/null 2>&1 || return 0
+    notify-send -a "System Message" -t 4000 -u "$urgency" -i "$icon" "$title" "$body"
+}
+
+acquire_lock() {
+    if [ "${SIM_MODE:-0}" = "1" ]; then
+        log "sim-mode: skipping lock"
+        return 0
+    fi
+
+    if command -v flock >/dev/null 2>&1; then
+        exec 9>"$LOCK_FILE"
+        if ! flock -n 9; then
+            log "exit: lock held ($LOCK_FILE)"
+            exit 0
+        fi
+        return 0
+    fi
+
+    if [ -e "$LOCK_FILE" ] && kill -0 "$(cat "$LOCK_FILE" 2>/dev/null)" 2>/dev/null; then
+        log "exit: lock held ($LOCK_FILE)"
+        exit 0
+    fi
+    echo "$$" >"$LOCK_FILE"
+    trap 'rm -f "$LOCK_FILE"' EXIT
+}
+
+get_display_device() {
+    upower -e 2>/dev/null | awk '/DisplayDevice/{print; exit}'
+}
+
+get_on_battery_real() {
+    local dev s
+    dev="$(get_display_device)"
+    [ -n "$dev" ] || { printf '%s\n' unknown; return 0; }
+    s="$(upower -i "$dev" 2>/dev/null | awk -F': *' '/on-battery:/ {print $2; exit}' | tr -d '\r')"
+    case "$s" in
+        yes|no) printf '%s\n' "$s" ;;
+        *) printf '%s\n' unknown ;;
+    esac
+}
+
+get_percentage_real() {
+    local dev p
+    dev="$(get_display_device)"
+    [ -n "$dev" ] || { printf '%s\n' -1; return 0; }
+    p="$(upower -i "$dev" 2>/dev/null | awk -F': *' '/percentage:/ {print $2; exit}' | tr -d '\r' | tr -d '%')"
+    case "$p" in
+        ''|*[!0-9]*) printf '%s\n' -1 ;;
+        *) printf '%s\n' "$p" ;;
+    esac
+}
+
+get_on_battery() {
+    case "${SIM_ON_BATTERY:-}" in
+        yes|no) printf '%s\n' "${SIM_ON_BATTERY}" ;;
+        *) get_on_battery_real ;;
+    esac
+}
+
+get_percentage() {
+    case "${SIM_PERCENT:-}" in
+        ''|*[!0-9]*) get_percentage_real ;;
+        *) printf '%s\n' "${SIM_PERCENT}" ;;
+    esac
+}
+
+get_health() {
+    command -v python3 >/dev/null 2>&1 || { printf '%s\n' ""; return 0; }
+
+    local bat base design full
+    bat="$(upower -e 2>/dev/null | awk '/battery_/ {print; exit}')"
+    [ -n "$bat" ] || { printf '%s\n' ""; return 0; }
+
+    base="$(upower -i "$bat" 2>/dev/null)"
+    design="$(printf '%s\n' "$base" | awk -F': *' '/energy-full-design:/ {print $2; exit}' | tr -d '\r')"
+    full="$(printf '%s\n' "$base" | awk -F': *' '/energy-full:/ {print $2; exit}' | tr -d '\r')"
+
+    [ -n "$design" ] || { printf '%s\n' ""; return 0; }
+    [ -n "$full" ] || { printf '%s\n' ""; return 0; }
+
+    python3 - <<PY 2>/dev/null || true
+import re
+d="$design"
+f="$full"
+def num(s):
+    m=re.search(r'([0-9]+(?:\.[0-9]+)?)', s)
+    return float(m.group(1)) if m else None
+dv=num(d)
+fv=num(f)
+if dv and fv and dv>0:
+    print(f"{(fv/dv)*100:.0f}%")
+PY
+}
+
+schedule_plugged_reminder() {
+    local token_file="$STATE_DIR/ac-reminder.token"
+    local token
+    token="$(date +%s)"
+    printf '%s\n' "$token" >"$token_file"
+
+    (
+        sleep "$((PLUGGED_REMIND_MINUTES * 60))"
+        [ -r "$token_file" ] || exit 0
+        [ "$(cat "$token_file" 2>/dev/null)" = "$token" ] || exit 0
+
+        onb="$(get_on_battery)"
+        pct="$(get_percentage)"
+
+        if [ "$onb" = "no" ] && [ "$pct" -ge "$CHARGE_NOTIFY_LEVEL" ]; then
+            notify "normal" "battery" "Battery care" "If you plan to stay on AC, consider enabling a charge limit (if supported) or unplugging occasionally to reduce long-term wear."
+            log "reminder: on-ac pct=$pct"
+        fi
+    ) &
+}
+
+# --- CRITICAL FIX: Export functions for subshell visibility ---
+export -f log notify get_display_device get_on_battery_real get_percentage_real get_on_battery get_percentage schedule_plugged_reminder
+
+acquire_lock
+
+log "start pid=$$ debug=${DEBUG:-0} sim_mode=${SIM_MODE:-0} sim_on_battery=${SIM_ON_BATTERY:-} sim_percent=${SIM_PERCENT:-}"
+
+last_state=""
+hit_charge=0
+hit_full=0
+hit_crit=0
+
+init_state="$(get_on_battery)"
+init_pct="$(get_percentage)"
+last_state="$init_state"
+
+if [ "$init_state" = "no" ]; then
+    h="$(get_health)"
+    if [ -n "$h" ]; then
+        notify "low" "ac-adapter" "AC connected" "Charging. Battery health estimate: $h"
+    else
+        notify "low" "ac-adapter" "AC connected" "Charging."
+    fi
+    schedule_plugged_reminder
+elif [ "$init_state" = "yes" ]; then
+    notify "low" "battery" "On battery" "Battery at ${init_pct}%."
+fi
+
+if [ "${SIM_MODE:-0}" = "1" ]; then
+    state="$init_state"
+    pct="$init_pct"
+
+    if [ "$state" = "no" ]; then
+        if [ "$hit_charge" -eq 0 ] && [ "$pct" -ge "$CHARGE_NOTIFY_LEVEL" ] && [ "$pct" -lt "$FULL_NOTIFY_LEVEL" ]; then
+            hit_charge=1
+            notify "normal" "battery" "Charge level reached" "Battery is at ${pct}%. Consider stopping at ~${CHARGE_NOTIFY_LEVEL}% for longevity."
+            log "notify: pct>=${CHARGE_NOTIFY_LEVEL} pct=$pct"
+        fi
+
+        if [ "$hit_full" -eq 0 ] && [ "$pct" -ge "$FULL_NOTIFY_LEVEL" ]; then
+            hit_full=1
+            notify "normal" "battery-full" "Battery fully charged" "Battery is at ${pct}%."
+            log "notify: pct>=${FULL_NOTIFY_LEVEL} pct=$pct"
+        fi
+    fi
+
+    if [ "$state" = "yes" ]; then
+        if [ "$hit_crit" -eq 0 ] && [ "$pct" -le "$CRITICAL_LEVEL" ]; then
+            hit_crit=1
+            notify "critical" "battery-low" "Battery critical" "Battery is at ${pct}%. Please connect AC power."
+            log "notify: pct<=${CRITICAL_LEVEL} pct=$pct"
+        fi
+    fi
+
+    exit 0
+fi
+
+
+# -- Display notifications for battery health.
+
+upower --monitor-detail 2>/dev/null | while IFS= read -r line; do
+    case "$line" in
+        *"on-battery:"*"yes"*)
+            if [ "$last_state" != "yes" ]; then
+                last_state="yes"
+                hit_charge=0
+                hit_full=0
+                notify "low" "battery" "Power unplugged" "Now running on battery."
+                log "event: on-battery"
+            fi
+            ;;
+        *"on-battery:"*"no"*)
+            if [ "$last_state" != "no" ]; then
+                last_state="no"
+                hit_crit=0
+                h="$(get_health)"
+                if [ -n "$h" ]; then
+                    notify "low" "ac-adapter" "AC connected" "Charging. Battery health estimate: $h"
+                else
+                    notify "low" "ac-adapter" "AC connected" "Charging."
+                fi
+                schedule_plugged_reminder
+                log "event: on-ac"
+            fi
+            ;;
+        *"percentage:"*)
+            pct="$(get_percentage)"
+            [ "$pct" -ge 0 ] || continue
+
+            if [ "$last_state" = "no" ]; then
+                if [ "$hit_charge" -eq 0 ] && [ "$pct" -ge "$CHARGE_NOTIFY_LEVEL" ] && [ "$pct" -lt "$FULL_NOTIFY_LEVEL" ]; then
+                    hit_charge=1
+                    notify "normal" "battery" "Charge level reached" "Battery is at ${pct}%. Consider stopping at ~${CHARGE_NOTIFY_LEVEL}% for longevity."
+                    log "notify: pct>=${CHARGE_NOTIFY_LEVEL} pct=$pct"
+                fi
+
+                if [ "$hit_full" -eq 0 ] && [ "$pct" -ge "$FULL_NOTIFY_LEVEL" ]; then
+                    hit_full=1
+                    notify "normal" "battery-full" "Battery fully charged" "Battery is at ${pct}%."
+                    log "notify: pct>=${FULL_NOTIFY_LEVEL} pct=$pct"
+                fi
+            fi
+
+            if [ "$last_state" = "yes" ]; then
+                if [ "$hit_crit" -eq 0 ] && [ "$pct" -le "$CRITICAL_LEVEL" ]; then
+                    hit_crit=1
+                    notify "critical" "battery-low" "Battery critical" "Battery is at ${pct}%. Please connect AC power."
+                    log "notify: pct<=${CRITICAL_LEVEL} pct=$pct"
+                fi
+            fi
+            ;;
+    esac
+done

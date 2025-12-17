@@ -1,3 +1,9 @@
+nitrux-system-settings (0.4.1) nitrux; urgency=medium
+
+  * Add battery monitoring daemon.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Wed, 17 Dec 2025 09:46:00 -0500
+
 nitrux-system-settings (0.3.9) nitrux; urgency=medium
 
   * Update hcel.
