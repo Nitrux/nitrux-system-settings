@@ -4,7 +4,7 @@
 # Copyright 2024-2025 <Nitrux Latinoamericana S.C. <hello@nxos.org>>
 
 
-# -- Exit onr errors.
+# -- Exit on errors.
 
 set -euo pipefail
 
@@ -148,13 +148,12 @@ schedule_plugged_reminder() {
         pct="$(get_percentage)"
 
         if [ "$onb" = "no" ] && [ "$pct" -ge "$CHARGE_NOTIFY_LEVEL" ]; then
-            notify "normal" "battery" "Battery care" "If you plan to stay on AC, consider enabling a charge limit (if supported) or unplugging occasionally to reduce long-term wear."
+            notify "normal" "battery" "Battery Care" "If you plan to stay on AC, consider enabling a charge limit (if supported) or unplugging occasionally to reduce long-term wear."
             log "reminder: on-ac pct=$pct"
         fi
     ) &
 }
 
-# --- CRITICAL FIX: Export functions for subshell visibility ---
 export -f log notify get_display_device get_on_battery_real get_percentage_real get_on_battery get_percentage schedule_plugged_reminder
 
 acquire_lock
@@ -170,16 +169,11 @@ init_state="$(get_on_battery)"
 init_pct="$(get_percentage)"
 last_state="$init_state"
 
-if [ "$init_state" = "no" ]; then
-    h="$(get_health)"
-    if [ -n "$h" ]; then
-        notify "low" "ac-adapter" "AC connected" "Charging. Battery health estimate: $h"
-    else
-        notify "low" "ac-adapter" "AC connected" "Charging."
-    fi
+if [ "$init_state" = "no" ]; then    
     schedule_plugged_reminder
+
 elif [ "$init_state" = "yes" ]; then
-    notify "low" "battery" "On battery" "Battery at ${init_pct}%."
+    :
 fi
 
 if [ "${SIM_MODE:-0}" = "1" ]; then
@@ -189,13 +183,13 @@ if [ "${SIM_MODE:-0}" = "1" ]; then
     if [ "$state" = "no" ]; then
         if [ "$hit_charge" -eq 0 ] && [ "$pct" -ge "$CHARGE_NOTIFY_LEVEL" ] && [ "$pct" -lt "$FULL_NOTIFY_LEVEL" ]; then
             hit_charge=1
-            notify "normal" "battery" "Charge level reached" "Battery is at ${pct}%. Consider stopping at ~${CHARGE_NOTIFY_LEVEL}% for longevity."
+            notify "normal" "battery" "Charge Level" "Battery is at ${pct}%. Consider stopping at ~${CHARGE_NOTIFY_LEVEL}% for longevity."
             log "notify: pct>=${CHARGE_NOTIFY_LEVEL} pct=$pct"
         fi
 
         if [ "$hit_full" -eq 0 ] && [ "$pct" -ge "$FULL_NOTIFY_LEVEL" ]; then
             hit_full=1
-            notify "normal" "battery-full" "Battery fully charged" "Battery is at ${pct}%."
+            notify "normal" "battery-full" "Battery Charged" "Battery is at ${pct}%."
             log "notify: pct>=${FULL_NOTIFY_LEVEL} pct=$pct"
         fi
     fi
@@ -203,7 +197,7 @@ if [ "${SIM_MODE:-0}" = "1" ]; then
     if [ "$state" = "yes" ]; then
         if [ "$hit_crit" -eq 0 ] && [ "$pct" -le "$CRITICAL_LEVEL" ]; then
             hit_crit=1
-            notify "critical" "battery-low" "Battery critical" "Battery is at ${pct}%. Please connect AC power."
+            notify "critical" "battery-low" "Battery Critical" "Battery is at ${pct}%. Please connect AC power."
             log "notify: pct<=${CRITICAL_LEVEL} pct=$pct"
         fi
     fi
@@ -216,24 +210,15 @@ fi
 
 upower --monitor-detail 2>/dev/null | while IFS= read -r line; do
     case "$line" in
-        *"on-battery:"*"yes"*)
-            if [ "$last_state" != "yes" ]; then
-                last_state="yes"
-                hit_charge=0
-                hit_full=0
-                notify "low" "battery" "Power unplugged" "Now running on battery."
-                log "event: on-battery"
-            fi
-            ;;
         *"on-battery:"*"no"*)
             if [ "$last_state" != "no" ]; then
                 last_state="no"
                 hit_crit=0
                 h="$(get_health)"
                 if [ -n "$h" ]; then
-                    notify "low" "ac-adapter" "AC connected" "Charging. Battery health estimate: $h"
+                    notify "low" "ac-adapter" "AC Connected" "Charging. Battery health estimate: $h"
                 else
-                    notify "low" "ac-adapter" "AC connected" "Charging."
+                    notify "low" "ac-adapter" "AC Connected" "Charging."
                 fi
                 schedule_plugged_reminder
                 log "event: on-ac"
@@ -246,13 +231,13 @@ upower --monitor-detail 2>/dev/null | while IFS= read -r line; do
             if [ "$last_state" = "no" ]; then
                 if [ "$hit_charge" -eq 0 ] && [ "$pct" -ge "$CHARGE_NOTIFY_LEVEL" ] && [ "$pct" -lt "$FULL_NOTIFY_LEVEL" ]; then
                     hit_charge=1
-                    notify "normal" "battery" "Charge level reached" "Battery is at ${pct}%. Consider stopping at ~${CHARGE_NOTIFY_LEVEL}% for longevity."
+                    notify "normal" "battery" "Charge Complete" "Battery is at ${pct}%. Consider stopping at ~${CHARGE_NOTIFY_LEVEL}% for longevity."
                     log "notify: pct>=${CHARGE_NOTIFY_LEVEL} pct=$pct"
                 fi
 
                 if [ "$hit_full" -eq 0 ] && [ "$pct" -ge "$FULL_NOTIFY_LEVEL" ]; then
                     hit_full=1
-                    notify "normal" "battery-full" "Battery fully charged" "Battery is at ${pct}%."
+                    notify "normal" "battery-full" "Battery Charged" "Battery is at ${pct}%."
                     log "notify: pct>=${FULL_NOTIFY_LEVEL} pct=$pct"
                 fi
             fi
@@ -260,7 +245,7 @@ upower --monitor-detail 2>/dev/null | while IFS= read -r line; do
             if [ "$last_state" = "yes" ]; then
                 if [ "$hit_crit" -eq 0 ] && [ "$pct" -le "$CRITICAL_LEVEL" ]; then
                     hit_crit=1
-                    notify "critical" "battery-low" "Battery critical" "Battery is at ${pct}%. Please connect AC power."
+                    notify "critical" "battery-low" "Battery Critical" "Battery is at ${pct}%. Please connect AC power."
                     log "notify: pct<=${CRITICAL_LEVEL} pct=$pct"
                 fi
             fi

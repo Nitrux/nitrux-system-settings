@@ -1,12 +1,18 @@
+nitrux-system-settings (0.4.2) nitrux; urgency=medium
+
+  * Update nx-battery-notify and nx-dynamic-ppd.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Wed, 17 Dec 2025 10:38:00 -0500
+
 nitrux-system-settings (0.4.1) nitrux; urgency=medium
 
-  * Add battery monitoring daemon.
+  * Add nx-battery-notify.
 
  -- Uri Herrera <uri_herrera@nxos.org>  Wed, 17 Dec 2025 09:46:00 -0500
 
 nitrux-system-settings (0.3.9) nitrux; urgency=medium
 
-  * Update hcel.
+  * Update HCEL scripts.
 
  -- Uri Herrera <uri_herrera@nxos.org>  Wed, 17 Dec 2025 08:19:00 -0500
 
@@ -18,7 +24,7 @@ nitrux-system-settings (0.3.8) nitrux; urgency=medium
 
 nitrux-system-settings (0.3.7) nitrux; urgency=medium
 
-  * Update hcel and nx-dynamic-ppd scripts.
+  * Update HCEL and nx-dynamic-ppd scripts.
 
  -- Uri Herrera <uri_herrera@nxos.org>  Tue, 16 Dec 2025 21:09:00 -0500
 

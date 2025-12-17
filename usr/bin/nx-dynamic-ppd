@@ -4,6 +4,10 @@
 # Copyright 2024-2025 <Nitrux Latinoamericana S.C. <hello@nxos.org>>
 
 
+# -- Exit on errors.
+
+set -euo pipefail
+
 # -- Variables.
 
 umask 077
@@ -157,11 +161,14 @@ wait_for_state() {
 
 # -- Monitor the power supply status change and apply the adequate power profile.
 
+acquire_lock
+
 state="$(wait_for_state)"
 apply_policy_for_state "$state" || true
 
 if has_battery; then
-    upower --monitor-detail 2>/dev/null | while IFS= read -r line; do
+    stdbuf -oL upower --monitor-detail 2>/dev/null | while IFS= read -r line; do
+        new="$state" 
         case "$line" in
             *"on-battery:"*"yes"*) new="battery" ;;
             *"on-battery:"*"no"*)  new="ac" ;;
@@ -171,7 +178,9 @@ if has_battery; then
                 ;;
             *) continue ;;
         esac
+        
         [ "$new" = "$state" ] && continue
+        
         state="$new"
         apply_policy_for_state "$state" || true
     done
