@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-24.04
 
     container:
-      image: debian:testing
+      image: registry.debian.org/debian:testing
       env:
         DEBIAN_FRONTEND: noninteractive
 
