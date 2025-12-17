@@ -29,13 +29,41 @@ grep -q "hypervisor" /proc/cpuinfo 2>/dev/null && IS_VM=1 || true
 
 if [ "$IS_VM" -eq 0 ]; then
     TOTAL_RAM_MB=$(awk '/MemTotal/ {printf "%d", $2 / 1024}' /proc/meminfo)
-    TOTAL_RAM_GB=$(awk '/MemTotal/ {printf "%.1f", $2 / 1024 / 1024}' /proc/meminfo)
+    TOTAL_RAM_GB=$(awk "BEGIN {printf \"%.1f\", $TOTAL_RAM_MB / 1024}")
     PHYSICAL_CORES=$(lscpu | grep "^Core(s) per socket:" | awk '{print $4}')
     THREADS=$(lscpu | grep "^CPU(s):" | awk '{print $2}')
+    CPU_MODEL=$(lscpu | grep "^Model name:" | sed 's/Model name:\s*//')
+    AVX2_SUPPORT=$(grep -q avx2 /proc/cpuinfo && echo "Yes" || echo "No")
+
+    GPU_MODEL=""
+    GPU_VRAM_MB=""
+
+    if command -v nvidia-smi &>/dev/null; then
+        NVIDIA_OUTPUT=$(nvidia-smi --query-gpu=gpu_name,memory.total --format=csv,noheader,nounits 2>/dev/null) || NVIDIA_OUTPUT=""
+        if [ -n "$NVIDIA_OUTPUT" ]; then
+            GPU_MODEL=$(echo "$NVIDIA_OUTPUT" | cut -d',' -f1 | head -n1)
+            GPU_VRAM_MB=$(echo "$NVIDIA_OUTPUT" | cut -d',' -f2 | head -n1 | tr -d ' ')
+        fi
+    fi
+
+    if [ -z "$GPU_MODEL" ]; then
+        GPU_MODEL=$(lspci | grep -i 'vga\|3d\|display' | sed 's/.*: //' | head -n1)
+        GPU_VRAM_MB=$(glxinfo 2>/dev/null | grep -i "video memory" | awk '{print $3}')
+    fi
+
+    GPU_VRAM_MB=${GPU_VRAM_MB//[^0-9]/}
+    GPU_VRAM_MB=${GPU_VRAM_MB:-0}
+
+    if [ "$GPU_VRAM_MB" -eq 0 ]; then
+        GPU_VRAM_DISPLAY="Unknown"
+    else
+        GPU_VRAM_DISPLAY="${GPU_VRAM_MB} MB"
+    fi
 
     LOW_RAM=0
     LOW_CORES=0
     LOW_THREADS=0
+    LOW_VRAM=0
 
     if (( TOTAL_RAM_MB < 4096 )); then
         LOW_RAM=1
@@ -46,47 +74,65 @@ if [ "$IS_VM" -eq 0 ]; then
     if (( THREADS < 4 )); then
         LOW_THREADS=1
     fi
+    if (( GPU_VRAM_MB < 512 && GPU_VRAM_MB > 0 )); then
+        LOW_VRAM=1
+    fi
 
-    if (( LOW_RAM || LOW_CORES || LOW_THREADS )); then
+    if (( LOW_RAM || LOW_CORES || LOW_THREADS || LOW_VRAM )); then
         notify-send \
             -a "System Message" \
             -u critical \
+            --action=Understood \
             -i "dialog-warning" \
-            -w  \
-            -A "Understood=Understood" \
             "System Specs Warning" \
-            "This system does not meet the minimum recommended specifications. Dismiss to view details."
+            "This system does not meet the recommended specifications.\n\nDismiss to view details."
 
         TABLE_ROWS=""
 
-        if (( LOW_RAM )); then
-            TABLE_ROWS+="<tr style='background-color: #ffcccc;'><td>RAM</td><td>4 GB</td><td>$TOTAL_RAM_GB GB</td></tr>"
-        else
-            TABLE_ROWS+="<tr><td>RAM</td><td>4 GB</td><td>$TOTAL_RAM_GB GB</td></tr>"
-        fi
+        TABLE_ROWS+="<tr><th>HW Configuration</th><th>Minimum Requirements</th><th>Detected</th></tr>"
+        TABLE_ROWS+="<tr><td>CPU</td><td>x86_64 with AVX2</td><td>$CPU_MODEL</td></tr>"
+        TABLE_ROWS+="<tr><td>AVX2 Support</td><td>Yes</td><td>$AVX2_SUPPORT</td></tr>"
 
         if (( LOW_CORES )); then
-            TABLE_ROWS+="<tr style='background-color: #ffcccc;'><td>Physical Cores</td><td>4</td><td>$PHYSICAL_CORES</td></tr>"
+            TABLE_ROWS+="<tr style='background-color: #cc4444;'><td>Physical Cores</td><td>4</td><td>$PHYSICAL_CORES</td></tr>"
         else
             TABLE_ROWS+="<tr><td>Physical Cores</td><td>4</td><td>$PHYSICAL_CORES</td></tr>"
         fi
 
         if (( LOW_THREADS )); then
-            TABLE_ROWS+="<tr style='background-color: #ffcccc;'><td>Threads</td><td>4</td><td>$THREADS</td></tr>"
+            TABLE_ROWS+="<tr style='background-color: #cc4444;'><td>Threads</td><td>4</td><td>$THREADS</td></tr>"
         else
             TABLE_ROWS+="<tr><td>Threads</td><td>4</td><td>$THREADS</td></tr>"
         fi
 
-        MSG="<p>This system does not meet the minimum recommended hardware specifications that we consider necessary to run Nitrux without harming the user experience. We highlight the components that do not meet the requirements.</p>"
-        MSG+="<table border='1' cellpadding='5'>"
-        MSG+="<tr><th>Component</th><th>Required</th><th>Detected</th></tr>"
-        MSG+="$TABLE_ROWS"
-        MSG+="</table><br>"
-        MSG+="<p>Performance will be limited. Nitrux does not target low-spec hardware.</p>"
-        MSG+="<p>Please review the documentation:<br>"
-        MSG+="<b>System Requirements: https://nxos.org/tutorial/how-to-install-nitrux/#system-requirements/</b></p>"
+        if (( LOW_RAM )); then
+            TABLE_ROWS+="<tr style='background-color: #cc4444;'><td>RAM</td><td>4 GB</td><td>$TOTAL_RAM_GB GB</td></tr>"
+        else
+            TABLE_ROWS+="<tr><td>RAM</td><td>4 GB</td><td>$TOTAL_RAM_GB GB</td></tr>"
+        fi
 
-        kdialog --title "System Specs Warning" --msgbox "$MSG" --geometry 550x350
+        TABLE_ROWS+="<tr><td>GPU</td><td>Mesa or NVIDIA (OKM)</td><td>$GPU_MODEL</td></tr>"
+
+        if (( LOW_VRAM )); then
+            TABLE_ROWS+="<tr style='background-color: #cc4444;'><td>VRAM</td><td>512 MB</td><td>$GPU_VRAM_DISPLAY</td></tr>"
+        else
+            TABLE_ROWS+="<tr><td>VRAM</td><td>512 MB</td><td>$GPU_VRAM_DISPLAY</td></tr>"
+        fi
+
+        MSG="<b><p>This system does not meet the minimum recommended hardware specifications.</p></b>"
+        MSG+="<p>Nitrux requires a processor compatible with x86-64-v3 (AVX2 support) for some of the compiled software we use; this naturally excludes legacy hardware, even before considering RAM.</p>"
+        MSG+="<p>While Nitrux may boot and run on low-spec systems, performance will be noticeably degraded. Caching and memory tuning cannot compensate for insufficient cores or RAM.</p>"
+        MSG+="<p>Components that do not meet requirements are highlighted.</p>"
+        MSG+="&nbsp;&bull;&nbsp;<font color='green'><b>🔰 Information:</b></font> Older CPUs may work if they support AVX2 and were high-end for their era; see Nitrux Hardware Testing Setups."
+        MSG+="<table border='1' cellpadding='5' style='margin: 20px 0px 20px 0px;'>"
+        MSG+="$TABLE_ROWS"
+        MSG+="</table>"
+        MSG+="For details, see the documentation:<br><br>"
+        MSG+="&nbsp;&bull;&nbsp;<b>System Requirements: https://nxos.org/tutorial/how-to-install-nitrux/#system-requirements/</b><br><br>"
+        MSG+="&nbsp;&bull;&nbsp;<font color='orange'><b>⚠️ Important:</b></font> Low-spec systems cannot fully leverage the optimizations and experience the performance of Nitrux on modern hardware.<br>"
+        MSG+="<hr><b> Nitrux does not target low-spec hardware.</b>"
+
+        kdialog --title "System Specs Warning" --msgbox "$MSG" --geometry 650x550
     fi
 
     exit 0

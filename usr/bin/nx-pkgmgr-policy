@@ -59,7 +59,7 @@ MSG+="&nbsp;&bull;&nbsp;<b>AppBoxes</b> (GUI apps, CLI tools, utilities, some WM
 MSG+="&nbsp;&bull;&nbsp;<b>Flatpak</b> (additional GUI applications)<br>"
 MSG+="&nbsp;&bull;&nbsp;<b>Distrobox</b> (tasks requiring a package manager, such as compiling or workflow transition)<br><br>"
 MSG+="For details, see the documentation:<br><br>"
-MSG+="<b>Software Management: $software_management_url</b><br><br>"
+MSG+="&nbsp;&bull;&nbsp;<b>Software Management: $software_management_url</b><br>"
 MSG+="<hr><b>The command was not executed.</b>"
 
 if [ "$EUID" -ne 0 ] && [ -n "${DISPLAY-}" ] && command -v kdialog >/dev/null 2>&1; then

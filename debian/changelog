@@ -1,3 +1,9 @@
+nitrux-system-settings (0.3.9) nitrux; urgency=medium
+
+  * Update hcel.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Wed, 17 Dec 2025 08:19:00 -0500
+
 nitrux-system-settings (0.3.8) nitrux; urgency=medium
 
   * Update nx-dynamic-ppd, again.
