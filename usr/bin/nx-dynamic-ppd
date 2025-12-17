@@ -8,10 +8,10 @@
 
 umask 077
 
-CRITICAL_LEVEL=${CRITICAL_LEVEL:-25}
-BALANCED_MIN=${BALANCED_MIN:-26}
-BALANCED_MAX=${BALANCED_MAX:-75}
-PERF_ON_BATT_MIN=${PERF_ON_BATT_MIN:-76}
+CRITICAL_LEVEL=${CRITICAL_LEVEL:-20}
+BALANCED_MIN=${BALANCED_MIN:-21}
+BALANCED_MAX=${BALANCED_MAX:-59}
+PERF_ON_BATT_MIN=${PERF_ON_BATT_MIN:-60}
 
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/nx-dynamic-ppd"
 LOG_FILE="$STATE_DIR/nx-dynamic-ppd.log"
@@ -20,26 +20,43 @@ LOCK_FILE="${XDG_RUNTIME_DIR:-$STATE_DIR}/nx-dynamic-ppd.lock"
 mkdir -p "$STATE_DIR"
 mkdir -p "$(dirname "$LOCK_FILE")"
 
-if [ "${NO_REDIRECT:-0}" != "1" ]; then
+log() {
+    printf '%s\n' "$(date -Is) $*"
+}
+
+if [ "${DEBUG:-0}" != "1" ]; then
     exec >>"$LOG_FILE" 2>&1
 fi
 
-if command -v flock >/dev/null 2>&1; then
-    exec 9>"$LOCK_FILE"
-    if ! flock -n 9; then
-        exit 0
+log "start pid=$$"
+
+acquire_lock() {
+    if command -v flock >/dev/null 2>&1; then
+        exec 9>"$LOCK_FILE"
+        if ! flock -n 9; then
+            if [ "${DEBUG:-0}" = "1" ]; then
+                log "lock held; DEBUG=1 so continuing without lock"
+                exec 9>&-
+                return 0
+            fi
+            log "exit: lock held ($LOCK_FILE)"
+            exit 0
+        fi
+        return 0
     fi
-else
+
     if [ -e "$LOCK_FILE" ] && kill -0 "$(cat "$LOCK_FILE" 2>/dev/null)" 2>/dev/null; then
+        if [ "${DEBUG:-0}" = "1" ]; then
+            log "lock held; DEBUG=1 so continuing without lock"
+            return 0
+        fi
+        log "exit: lock held ($LOCK_FILE)"
         exit 0
     fi
+
     echo "$$" >"$LOCK_FILE"
     trap 'rm -f "$LOCK_FILE"' EXIT
-fi
-
-printf '%s\n' "$(date -Is) start pid=$$"
-
-BAT_PATH=$(find /sys/class/power_supply/ -maxdepth 1 -name "BAT*" 2>/dev/null | head -n 1 || true)
+}
 
 
 # -- Functions.
@@ -59,60 +76,54 @@ get_battery_capacity() {
     fi
 }
 
-get_ac_online() {
-    local p
+get_display_device() {
+    upower -e 2>/dev/null | awk '/DisplayDevice/{print; exit}'
+}
 
-    for p in /sys/class/power_supply/*; do
-        [ -r "$p/type" ] || continue
-        if [ "$(cat "$p/type")" = "Mains" ] && [ -r "$p/online" ]; then
-            cat "$p/online"
-            return 0
-        fi
-    done
-
-    for p in /sys/class/power_supply/*; do
-        [ -r "$p/online" ] || continue
-        if [ -r "$p/type" ] && [ "$(cat "$p/type")" = "Battery" ]; then
-            continue
-        fi
-        cat "$p/online"
-        return 0
-    done
-
-    printf '%s\n' 1
+get_on_battery() {
+    local dev s
+    dev="$(get_display_device)"
+    [ -n "$dev" ] || { printf '%s\n' unknown; return 0; }
+    s="$(upower -i "$dev" 2>/dev/null | awk -F': *' '/on-battery:/ {print $2; exit}' | tr -d '\r')"
+    case "$s" in
+        yes|no) printf '%s\n' "$s" ;;
+        *) printf '%s\n' unknown ;;
+    esac
 }
 
 set_profile_if_needed() {
     local target="$1" urgency="$2" icon="$3" body="$4"
     local current
     current=$(powerprofilesctl get 2>/dev/null || true)
-
     if [ "$current" != "$target" ]; then
         powerprofilesctl set "$target"
         if command -v notify-send >/dev/null 2>&1; then
-            notify-send -a "System Message" -t 3000 -u "$urgency" -i "$icon" "Power Profile" "$body"
+            notify-send -a "System Message" -t 5000 -u "$urgency" -i "$icon" "Power Profile" "$body"
         fi
-        printf '%s\n' "$(date -Is) profile: $current -> $target ($body)"
+        log "profile: $current -> $target ($body)"
+    else
+        log "profile: unchanged ($current) ($body)"
     fi
 }
 
-apply_policy() {
-    local ac cap
-    ac=$(get_ac_online)
+apply_policy_for_state() {
+    local state="$1" cap
 
     if ! has_battery; then
-        if [ "$ac" -eq 1 ]; then
+        log "state=$state bat=0"
+        if [ "$state" = "ac" ]; then
             set_profile_if_needed "performance" "low" "ac-adapter" "AC detected (no battery): performance"
         fi
         return 0
     fi
 
-    if [ "$ac" -eq 1 ]; then
+    cap="$(get_battery_capacity)"
+    log "state=$state bat=1 cap=$cap"
+
+    if [ "$state" = "ac" ]; then
         set_profile_if_needed "performance" "low" "ac-adapter" "AC detected: performance"
         return 0
     fi
-
-    cap=$(get_battery_capacity)
 
     if [ "$cap" -lt 0 ]; then
         return 0
@@ -129,30 +140,43 @@ apply_policy() {
     fi
 }
 
-monitor_events() {
-    while IFS= read -r line; do
-        case "$line" in
-            *line-power*|*percentage*)
-                apply_policy
-                ;;
+wait_for_state() {
+    local tries=20 s
+    while :; do
+        s="$(get_on_battery)"
+        case "$s" in
+            yes) printf '%s\n' battery; return 0 ;;
+            no)  printf '%s\n' ac; return 0 ;;
         esac
-    done < <(stdbuf -oL upower --monitor 2>/dev/null)
+        tries=$((tries-1))
+        [ "$tries" -le 0 ] && { printf '%s\n' battery; return 0; }
+        sleep 0.2
+    done
 }
 
 
 # -- Monitor the power supply status change and apply the adequate power profile.
 
-apply_policy
+state="$(wait_for_state)"
+apply_policy_for_state "$state" || true
 
 if has_battery; then
-    monitor_events
+    upower --monitor-detail 2>/dev/null | while IFS= read -r line; do
+        case "$line" in
+            *"on-battery:"*"yes"*) new="battery" ;;
+            *"on-battery:"*"no"*)  new="ac" ;;
+            *"percentage:"*)
+                [ "$state" = "battery" ] && apply_policy_for_state "$state" || true
+                continue
+                ;;
+            *) continue ;;
+        esac
+        [ "$new" = "$state" ] && continue
+        state="$new"
+        apply_policy_for_state "$state" || true
+    done
 else
     while :; do
         sleep 3600
-        if has_battery; then
-            apply_policy
-            monitor_events
-            exit 0
-        fi
     done
 fi
