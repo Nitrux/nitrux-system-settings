@@ -25,9 +25,7 @@ if [ -r /sys/class/dmi/id/product_name ]; then
     fi
 fi
 
-if grep -q "hypervisor" /proc/cpuinfo; then
-    IS_VM=1
-fi
+grep -q "hypervisor" /proc/cpuinfo 2>/dev/null && IS_VM=1 || true
 
 if [ "$IS_VM" -eq 0 ]; then
     TOTAL_RAM_MB=$(awk '/MemTotal/ {printf "%d", $2 / 1024}' /proc/meminfo)
@@ -53,8 +51,9 @@ if [ "$IS_VM" -eq 0 ]; then
         notify-send \
             -a "System Message" \
             -u critical \
-            --action=Understood \
             -i "dialog-warning" \
+            -w  \
+            -A "Understood=Understood" \
             "System Specs Warning" \
             "This system does not meet the minimum recommended specifications. Dismiss to view details."
 
@@ -96,11 +95,11 @@ fi
 sleep 5
 
 notify-send \
-    --app-name="System Message" \
-    --urgency=critical \
-    --icon="dialog-warning" \
-    --wait \
-    --action="Understood=Understood" \
+    -a "System Message" \
+    -u critical \
+    -i "dialog-warning" \
+    -w  \
+    -A "Understood=Understood" \
     "VM Detected" \
     "Nitrux is running in a Virtual Machine; performance and experience will be severely limited.\n\nDismiss this notification to view the virtualization policy."
 

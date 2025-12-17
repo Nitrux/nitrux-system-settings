@@ -13,9 +13,9 @@ BALANCED_MIN=${BALANCED_MIN:-26}
 BALANCED_MAX=${BALANCED_MAX:-75}
 PERF_ON_BATT_MIN=${PERF_ON_BATT_MIN:-76}
 
-STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/nitrux-power-manager"
-LOG_FILE="$STATE_DIR/nitrux-power-manager.log"
-LOCK_FILE="${XDG_RUNTIME_DIR:-$STATE_DIR}/nitrux-power-manager.lock"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/nx-dynamic-ppd"
+LOG_FILE="$STATE_DIR/nx-dynamic-ppd.log"
+LOCK_FILE="${XDG_RUNTIME_DIR:-$STATE_DIR}/nx-dynamic-ppd.lock"
 
 mkdir -p "$STATE_DIR"
 mkdir -p "$(dirname "$LOCK_FILE")"

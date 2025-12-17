@@ -1,3 +1,9 @@
+nitrux-system-settings (0.3.7) nitrux; urgency=medium
+
+  * Update hcel and nx-dynamic-ppd scripts.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Tue, 15 Dec 2025 21:09:00 -0500
+
 nitrux-system-settings (0.3.6) nitrux; urgency=medium
 
   * Use kdialog to display a dialog indicating the minimum requirments.
