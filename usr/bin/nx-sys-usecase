@@ -129,7 +129,7 @@ if [ "$IS_VM" -eq 0 ]; then
         MSG+="</table>"
         MSG+="For details, see the documentation:<br><br>"
         MSG+="&nbsp;&bull;&nbsp;<b>System Requirements: https://nxos.org/tutorial/how-to-install-nitrux/#system-requirements/</b><br><br>"
-        MSG+="&nbsp;&bull;&nbsp;<font color='orange'><b>⚠️ Important:</b></font> Low-spec systems cannot fully leverage the optimizations and experience the performance of Nitrux on modern hardware.<br>"
+        MSG+="&nbsp;&bull;&nbsp;<font color='orange'><b>⚠️ Important:</b></font> We define minimums to keep performance, stability, and support claims honest.<br>"
         MSG+="<hr><b> Nitrux does not target low-spec hardware.</b>"
 
         kdialog --title "System Specs Warning" --msgbox "$MSG" --geometry 650x550
