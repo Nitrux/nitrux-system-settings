@@ -144,7 +144,7 @@ notify-send \
     -a "System Message" \
     -u critical \
     -i "dialog-warning" \
-    -w  \
+    -w \
     -A "Understood=Understood" \
     "VM Detected" \
     "Nitrux is running in a Virtual Machine; performance and experience will be severely limited.\n\nDismiss this notification to view the virtualization policy."
