@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Nitrux Package Handler
+Comment=Enforces AppBox and Flatpak usage
+Exec=/usr/local/bin/nx-file-interceptor %f
+Icon=system-software-install
+Terminal=false
+NoDisplay=true
+MimeType=application/vnd.debian.binary-package;application/x-debian-package;application/x-rpm;application/x-iso9660-appimage;application/vnd.appimage;
