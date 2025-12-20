@@ -3,7 +3,6 @@
 description="Auto-selects scx_bpfland (Laptop) or scx_lavd (Desktop)"
 
 supervisor=supervise-daemon
-pidfile="/run/scx_dynamic.pid"
 
 depend() {
     need modules
