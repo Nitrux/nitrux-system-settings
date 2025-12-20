@@ -1,3 +1,9 @@
+nitrux-system-settings (0.4.5) nitrux; urgency=medium
+
+  * Update new HCEL script.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Fri, 19 Dec 2025 20:48:00 -0500
+
 nitrux-system-settings (0.4.4) nitrux; urgency=medium
 
   * Add new HCEL script.
