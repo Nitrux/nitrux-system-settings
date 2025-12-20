@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 
 description="Auto-selects scx_bpfland (Laptop) or scx_lavd (Desktop)"
-
 supervisor=supervise-daemon
 
 depend() {
