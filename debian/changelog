@@ -1,3 +1,9 @@
+nitrux-system-settings (0.4.7) nitrux; urgency=medium
+
+  * Update scx-synamic-scheduler service.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Fri, 19 Dec 2025 22:31:00 -0500
+
 nitrux-system-settings (0.4.6) nitrux; urgency=medium
 
   * Add scx-synamic-scheduler service.

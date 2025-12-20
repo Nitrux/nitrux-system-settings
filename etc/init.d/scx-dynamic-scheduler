@@ -1,47 +1,30 @@
 #!/sbin/openrc-run
 
-name="SCX Dynamic Scheduler"
 description="Auto-selects scx_bpfland (Laptop) or scx_lavd (Desktop)"
 
-# Shared PID file location
+supervisor=supervise-daemon
 pidfile="/run/scx_dynamic.pid"
-command_background=true
 
 depend() {
-    need localmount
-    after modules
+    need modules
+    need sysfs
 }
 
-start() {
-    # 1. Check for Battery presence
-    # /sys/class/power_supply/BAT* exists on almost all laptops
+start_pre() {
     if ls /sys/class/power_supply/BAT* >/dev/null 2>&1; then
-        MODE="Laptop"
-        # User request: Use scx_bpfland for battery devices
-        # It's great for interactivity and efficiency
-        EXEC_CMD="/usr/bin/scx_bpfland"
-        CMD_ARGS="" 
+        command="/usr/bin/scx_bpfland"
+        command_args=""
+        mode="Laptop"
     else
-        MODE="Desktop"
-        # Previous finding: scx_lavd --performance is best for your 9950X3D
-        EXEC_CMD="/usr/bin/scx_lavd"
-        CMD_ARGS="--performance"
+        command="/usr/bin/scx_lavd"
+        command_args="--performance"
+        mode="Desktop"
     fi
 
-    ebegin "Starting SCX Scheduler ($MODE Mode: $(basename $EXEC_CMD))"
-    
-    start-stop-daemon --start \
-        --background \
-        --make-pidfile \
-        --pidfile "${pidfile}" \
-        --exec "${EXEC_CMD}" \
-        -- ${CMD_ARGS}
-        
-    eend $?
-}
+    if [ ! -x "$command" ]; then
+        eerror "Scheduler binary not found: $command"
+        return 1
+    fi
 
-stop() {
-    ebegin "Stopping SCX Scheduler"
-    start-stop-daemon --stop --pidfile "${pidfile}"
-    eend $?
+    einfo "Selected SCX Scheduler (${mode} Mode): $(basename "$command")"
 }
