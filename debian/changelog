@@ -1,3 +1,11 @@
+nitrux-system-settings (0.4.9) nitrux; urgency=medium
+
+  * Revert changes to login.defs.
+  * Revert disabling sysrq, instead allow it to use ti for RESUIB.
+  * Pipe coredumps to a fixed location.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Wed, 24 Dec 2025 13:21:00 -0500
+
 nitrux-system-settings (0.4.8) nitrux; urgency=medium
 
   * Update scx-synamic-scheduler service.

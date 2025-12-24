@@ -4,8 +4,4 @@
 # Copyright 2024-2025 <Nitrux Latinoamericana S.C. <hello@nxos.org>>
 
 
-# -- Set user password expiration /etc/login.defs. See https://cisofy.com/lynis/controls/AUTH-9282/
-
-sed -E -i 's+PASS_MAX_DAYS[[:blank:]]99999+PASS_MAX_DAYS	90+g' /etc/login.defs
-sed -E -i 's+PASS_MIN_DAYS[[:blank:]]0+PASS_MIN_DAYS	1+g' /etc/login.defs
-sed -E -i 's+PASS_WARN_AGE[[:blank:]]7+PASS_WARN_AGE	5+g' /etc/login.defs
+exit 0
