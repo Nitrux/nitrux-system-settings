@@ -50,7 +50,7 @@ acquire_lock() {
         return 0
     fi
 
-    if [ -e "$LOCK_FILE" ] && kill -0 "$(cat "$LOCK_FILE" 2>/dev/null)" 2>/dev/null; then
+    if [ -e "$LOCK_FILE" ] && kill-0 "$(cat "$LOCK_FILE" 2>/dev/null)" 2>/dev/null; then
         if [ "${DEBUG:-0}" = "1" ]; then
             log "lock held; DEBUG=1 so continuing without lock"
             return 0
@@ -164,7 +164,12 @@ wait_for_state() {
 
 acquire_lock
 
-state="$(wait_for_state)"
+if has_battery; then
+    state="$(wait_for_state)"
+else
+    state="ac"
+fi
+
 apply_policy_for_state "$state" || true
 
 if has_battery; then

@@ -1,3 +1,9 @@
+nitrux-system-settings (0.5.0) nitrux; urgency=medium
+
+  * Update nx-dynmic-pdd logic to ensure desktops default to performance.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Mon, 29 Dec 2025 14:06:00 -0500
+
 nitrux-system-settings (0.4.9) nitrux; urgency=medium
 
   * Revert changes to login.defs.
