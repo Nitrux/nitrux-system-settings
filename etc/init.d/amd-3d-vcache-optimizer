@@ -1,0 +1,49 @@
+#!/sbin/openrc-run
+
+description="Configure AMD 3D V-Cache Optimizer to cache mode"
+
+VCACHE_DIR="/sys/bus/platform/drivers/amd_x3d_vcache/AMDI0101:00"
+VCACHE_MODE_FILE="${VCACHE_DIR}/amd_x3d_mode"
+
+depend() {
+    need sysfs
+    after modules
+}
+
+start() {
+    if [ ! -d "$VCACHE_DIR" ]; then
+        einfo "AMD 3D V-Cache Optimizer isn't supported on this platform"
+        return 0
+    fi
+
+    if [ ! -e "$VCACHE_MODE_FILE" ]; then
+        ewarn "AMD 3D V-Cache Optimizer mode file not found"
+        return 0
+    fi
+
+    current_mode=$(tr -d '[:space:]' < "$VCACHE_MODE_FILE" 2>/dev/null)
+
+    if [ -z "$current_mode" ]; then
+        ewarn "Unable to read current AMD 3D V-Cache Optimizer mode"
+        return 0
+    fi
+
+    case "$current_mode" in
+        cache)
+            einfo "AMD 3D V-Cache Optimizer already set to cache mode"
+            return 0
+            ;;
+        frequency)
+            if ! printf 'cache\n' > "$VCACHE_MODE_FILE"; then
+                eerror "Failed to set AMD 3D V-Cache Optimizer mode to cache"
+                return 1
+            fi
+            einfo "AMD 3D V-Cache Optimizer mode changed from frequency to cache"
+            return 0
+            ;;
+        *)
+            ewarn "AMD 3D V-Cache Optimizer has unknown mode '$current_mode'; leaving unchanged"
+            return 0
+            ;;
+    esac
+}
