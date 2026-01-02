@@ -1,3 +1,12 @@
+nitrux-system-settings (0.5.4) nitrux; urgency=medium
+
+  * Document changes to modules.
+  * Force the 5 GHz band for Wi-Fi interfaces in NetworkManager.
+  * Disabled ASPM (L1/L1SS) & Clock Request (rtw89).
+  * Disabled Power Save Mode (rtw89).
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Tue, 30 Dec 2025 21:38:00 -0500
+
 nitrux-system-settings (0.5.3) nitrux; urgency=medium
 
   * Rename AMD 3D V-Cache Optimizer service.
