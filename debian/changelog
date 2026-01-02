@@ -1,3 +1,10 @@
+nitrux-system-settings (0.5.5) nitrux; urgency=medium
+
+  * Disable background scanning in NetworkManager.
+  * Disabled more power save mode (rtw89).
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Tue, 30 Dec 2025 22:29:00 -0500
+
 nitrux-system-settings (0.5.4) nitrux; urgency=medium
 
   * Document changes to modules.
