@@ -1,3 +1,9 @@
+nitrux-system-settings (0.5.6) nitrux; urgency=medium
+
+  * Ensure hcvl scripts use different logs.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Tue, 05 Jan 2026 22:59:00 -0500
+
 nitrux-system-settings (0.5.5) nitrux; urgency=medium
 
   * Disable background scanning in NetworkManager.
@@ -66,19 +72,19 @@ nitrux-system-settings (0.4.6) nitrux; urgency=medium
 
 nitrux-system-settings (0.4.5) nitrux; urgency=medium
 
-  * Update new HCEL script.
+  * Update new HCVL script.
 
  -- Uri Herrera <uri_herrera@nxos.org>  Fri, 19 Dec 2025 20:48:00 -0500
 
 nitrux-system-settings (0.4.4) nitrux; urgency=medium
 
-  * Add new HCEL script.
+  * Add new HCVL script.
 
  -- Uri Herrera <uri_herrera@nxos.org>  Fri, 19 Dec 2025 10:42:00 -0500
 
 nitrux-system-settings (0.4.3) nitrux; urgency=medium
 
-  * Update HCEL scripts.
+  * Update HCVL scripts.
 
  -- Uri Herrera <uri_herrera@nxos.org>  Thu, 18 Dec 2025 17:25:00 -0500
 
@@ -96,7 +102,7 @@ nitrux-system-settings (0.4.1) nitrux; urgency=medium
 
 nitrux-system-settings (0.3.9) nitrux; urgency=medium
 
-  * Update HCEL scripts.
+  * Update HCVL scripts.
 
  -- Uri Herrera <uri_herrera@nxos.org>  Wed, 17 Dec 2025 08:19:00 -0500
 
@@ -108,7 +114,7 @@ nitrux-system-settings (0.3.8) nitrux; urgency=medium
 
 nitrux-system-settings (0.3.7) nitrux; urgency=medium
 
-  * Update HCEL and nx-dynamic-ppd scripts.
+  * Update HCVL and nx-dynamic-ppd scripts.
 
  -- Uri Herrera <uri_herrera@nxos.org>  Tue, 16 Dec 2025 21:09:00 -0500
 

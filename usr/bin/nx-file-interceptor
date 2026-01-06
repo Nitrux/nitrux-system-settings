@@ -40,7 +40,7 @@ REAL_USER="${SUDO_USER:-$USER}"
 # -- Logging.
 
 LOGDIR=/var/log/nitrux
-LOGFILE="$LOGDIR/hcel-software.log"
+LOGFILE="$LOGDIR/hcvl-file-interceptor.log"
 if [ -w "/var/log" ]; then
     mkdir -p "$LOGDIR" 2>/dev/null || true
 fi

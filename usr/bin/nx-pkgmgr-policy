@@ -27,7 +27,7 @@ REAL_USER="${SUDO_USER:-$USER}"
 # -- Use a log.
 
 LOGDIR=/var/log/nitrux
-LOGFILE="$LOGDIR/hcel-software.log"
+LOGFILE="$LOGDIR/hcvl-pkg-manager.log"
 
 if [ -w "/var/log" ]; then
     mkdir -p "$LOGDIR" 2>/dev/null || true
