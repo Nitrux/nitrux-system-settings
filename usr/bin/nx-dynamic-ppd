@@ -146,7 +146,7 @@ apply_policy_for_state() {
 }
 
 wait_for_state() {
-    local tries=20 s
+    local tries=20 s p supply_online
     while :; do
         s="$(get_on_battery)"
         case "$s" in
@@ -154,7 +154,26 @@ wait_for_state() {
             no)  printf '%s\n' ac; return 0 ;;
         esac
         tries=$((tries-1))
-        [ "$tries" -le 0 ] && { printf '%s\n' battery; return 0; }
+        
+        if [ "$tries" -le 0 ]; then
+            for p in /sys/class/power_supply/*; do
+                [ -e "$p/online" ] || continue
+                
+                case "${p##*/}" in
+                    BAT*) continue ;;
+                esac
+
+                supply_online=$(cat "$p/online" 2>/dev/null || echo 0)
+                if [ "$supply_online" = "1" ]; then
+                     printf '%s\n' ac
+                     return 0
+                fi
+            done
+            
+            printf '%s\n' battery
+            return 0
+        fi
+        
         sleep 0.2
     done
 }

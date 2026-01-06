@@ -1,8 +1,14 @@
+nitrux-system-settings (0.5.7) nitrux; urgency=medium
+
+  * Ensure nx-dynamic-ppd sets the correct power profile on login.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Tue, 06 Jan 2026 02:58:00 -0500
+
 nitrux-system-settings (0.5.6) nitrux; urgency=medium
 
   * Ensure hcvl scripts use different logs.
 
- -- Uri Herrera <uri_herrera@nxos.org>  Tue, 05 Jan 2026 22:59:00 -0500
+ -- Uri Herrera <uri_herrera@nxos.org>  Mon, 05 Jan 2026 22:59:00 -0500
 
 nitrux-system-settings (0.5.5) nitrux; urgency=medium
 
