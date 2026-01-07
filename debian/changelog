@@ -1,3 +1,9 @@
+nitrux-system-settings (0.5.8) nitrux; urgency=medium
+
+  * Disable ICMP Redirect Acceptance.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Wed, 07 Jan 2026 08:47:00 -0500
+
 nitrux-system-settings (0.5.7) nitrux; urgency=medium
 
   * Ensure nx-dynamic-ppd sets the correct power profile on login.
