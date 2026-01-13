@@ -50,7 +50,7 @@ fi
 
 dist=$(grep '^PRETTY_NAME=' /etc/os-release 2>/dev/null | head -n1 | cut -d= -f2- | tr -d '"' || true)
 dist=${dist:-Nitrux}
-software_management_url='https://nxos.org/tutorial/software-management/'
+software_management_url='https://nxos.org/documentation/software-management/'
 vendor='Nitrux Latinoamericana S.C.'
 fecha=$(date +%Y)
 
