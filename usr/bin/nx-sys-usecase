@@ -161,6 +161,6 @@ MSG+="<b>System Requirements: https://nxos.org/documentation/getting-started/sys
 MSG+="<font color='orange'><b>⚠️ Important:</b></font> Bug reports regarding running Nitrux as a guest VM will be closed.<br><br>"
 MSG+="<hr><b>The system will now reboot.</b>"
 
-kdialog --title "$TITLE" --msgbox "$MSG" --geometry 600x400
+kdialog --title "$TITLE" --msgbox "$MSG" --geometry 600x400 || true
 
 loginctl reboot || hyprctl dispatch exit
