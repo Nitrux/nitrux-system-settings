@@ -102,7 +102,7 @@ warn_appimage() {
     MSG="<b><tt>$FILENAME</tt> is an unmanaged AppImage.</b><br><br>"
     MSG+="Nitrux guarantees stability and performance only for software running inside managed <b>AppBoxes</b>.<br><br>"
     MSG+="Running unmanaged binaries may introduce instability or unexpected behavior.<br><br>"
-    MSG+="&nbsp;&bull;&nbsp;<b>Recommended:</b> Create a custom AppBox to run this application safely.<br>"
+    MSG+="&nbsp;&bull;&nbsp;<b>Recommended:</b> Create a custom bundle to run this application safely.<br>"
     MSG+="<hr><b>Do you still want to execute this file?</b>"
 
     # CRITICAL FIX: Check EUID != 0.
