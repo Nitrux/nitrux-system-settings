@@ -1,0 +1,58 @@
+#!/usr/bin/env sh
+
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright 2024-2026 <Nitrux Latinoamericana S.C. <hello@nxos.org>>
+
+set -e
+
+
+# -- Enable NVIDIA Power Management Services only if NVIDIA hardware is present.
+
+LOGFILE="/var/log/nvidia-sleep.log"
+
+
+# -- Check if NVIDIA hardware is present.
+
+has_nvidia_hardware() {
+    if lsmod | grep -q "^nvidia "; then
+        return 0
+    fi
+
+    if command -v lspci >/dev/null 2>&1; then
+        if lspci | grep -qi "nvidia.*vga\|nvidia.*3d"; then
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+
+# -- Check if nvidia-sleep.sh exists.
+
+if [ ! -x "/usr/bin/nvidia-sleep.sh" ]; then
+    echo "$(date) - nvidia-sleep.sh not found or not executable, skipping" >> "$LOGFILE"
+    exit 0
+fi
+
+
+# -- Only proceed if NVIDIA hardware is detected.
+
+if ! has_nvidia_hardware; then
+    echo "$(date) - No NVIDIA hardware detected, skipping $1" >> "$LOGFILE"
+    exit 0
+fi
+
+
+# -- Execute NVIDIA sleep operations.
+
+echo "$(date) - NVIDIA hardware detected, executing $1" >> "$LOGFILE"
+
+case "$1" in
+    pre)
+        /usr/bin/nvidia-sleep.sh suspend >> "$LOGFILE" 2>&1
+        ;;
+    post)
+        /usr/bin/nvidia-sleep.sh resume >> "$LOGFILE" 2>&1
+        ;;
+esac

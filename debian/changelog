@@ -1,3 +1,12 @@
+nitrux-system-settings (0.6.4) nitrux; urgency=medium
+
+  * Add elogind configuration files for proper suspend/hibernate support.
+  * Update elogind sleep configuration to current standards.
+  * Add system-sleep hook for NetworkManager restart after resume.
+  * Add NVIDIA hardware detection to nvidia-sleep hook to prevent errors on non-NVIDIA systems.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Thu, 27 Feb 2026 11:34:00 -0600
+
 nitrux-system-settings (0.6.3) nitrux; urgency=medium
 
   * Move hcvl scripts to standalone package.

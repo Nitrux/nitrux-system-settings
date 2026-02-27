@@ -9,7 +9,7 @@ Homepage: http://nxos.org
 
 Package: nitrux-system-settings
 Architecture: all
-Depends: ${shlibs:Depends}, ${misc:Depends}, power-profiles-daemon, python3-envycontrol
+Depends: ${shlibs:Depends}, ${misc:Depends}, power-profiles-daemon, python3-envycontrol, elogind
 Conflicts: nx-desktop-settings
 Description: Defaults system settings for Nitrux
  Default system settings for Nitrux.
