@@ -1,3 +1,9 @@
+nitrux-system-settings (0.6.5) nitrux; urgency=medium
+
+  * Rename elogind drop-ins.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Sat, 28 Feb 2026 00:44:00 -0600
+
 nitrux-system-settings (0.6.4) nitrux; urgency=medium
 
   * Add elogind configuration files for proper suspend/hibernate support.
@@ -5,7 +11,7 @@ nitrux-system-settings (0.6.4) nitrux; urgency=medium
   * Add system-sleep hook for NetworkManager restart after resume.
   * Add NVIDIA hardware detection to nvidia-sleep hook to prevent errors on non-NVIDIA systems.
 
- -- Uri Herrera <uri_herrera@nxos.org>  Thu, 27 Feb 2026 11:34:00 -0600
+ -- Uri Herrera <uri_herrera@nxos.org>  Fri, 27 Feb 2026 11:34:00 -0600
 
 nitrux-system-settings (0.6.3) nitrux; urgency=medium
 
