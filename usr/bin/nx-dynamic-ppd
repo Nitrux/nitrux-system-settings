@@ -96,12 +96,29 @@ get_on_battery() {
     esac
 }
 
+set_brightness() {
+    local pct="$1"
+    if command -v brightnessctl >/dev/null 2>&1; then
+        brightnessctl set "${pct}%" --quiet 2>/dev/null || true
+        log "brightness: ${pct}%"
+    fi
+}
+
+brightness_for_profile() {
+    case "$1" in
+        performance) set_brightness 65 ;;
+        balanced)    set_brightness 50 ;;
+        power-saver) set_brightness 20 ;;
+    esac
+}
+
 set_profile_if_needed() {
     local target="$1" urgency="$2" icon="$3" body="$4"
     local current
     current=$(powerprofilesctl get 2>/dev/null || true)
     if [ "$current" != "$target" ]; then
         powerprofilesctl set "$target"
+        brightness_for_profile "$target"
         if command -v notify-send >/dev/null 2>&1; then
             notify-send -a "System Message" -t 5000 -u "$urgency" -i "$icon" "Power Profile" "$body"
         fi

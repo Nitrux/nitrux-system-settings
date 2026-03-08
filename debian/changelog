@@ -1,3 +1,9 @@
+nitrux-system-settings (0.7.2) nitrux; urgency=medium
+
+  * Update nx-dynamic-ppd to also apply screen brightness according to the active power profile.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Sun, 08 Mar 2026 04:23:00 -0600
+
 nitrux-system-settings (0.7.1) nitrux; urgency=medium
 
   * Update nvidia module conf file.
