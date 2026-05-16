@@ -1,6 +1,12 @@
+nitrux-system-settings (0.7.4) nitrux; urgency=medium
+
+  * Add etc/dmemcg-booster/nx-default-boost.conf.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Sat, 16 May 2026 13:51:00 -0600
+
 nitrux-system-settings (0.7.3) nitrux; urgency=medium
 
-  * Move mimeapps.list to nitrux-desktop-settings
+  * Move mimeapps.list to nitrux-desktop-settings.
 
  -- Uri Herrera <uri_herrera@nxos.org>  Tue, 08 Apr 2026 17:06:00 -0600
 
