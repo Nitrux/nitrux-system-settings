@@ -1,4 +1,4 @@
-nitrux-system-settings (0.7.5) nitrux; urgency=medium
+nitrux-system-settings (0.7.6) nitrux; urgency=medium
 
   * Only enable level 1 ptrace restriction.
 
