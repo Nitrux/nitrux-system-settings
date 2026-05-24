@@ -1,5 +1,11 @@
 nitrux-system-settings (0.7.5) nitrux; urgency=medium
 
+  * Only enable level 1 ptrace restriction.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Sun, 24 May 2026 03:15:00 -0600
+
+nitrux-system-settings (0.7.5) nitrux; urgency=medium
+
   * Disable the ability of unprivileged users to attach to other processes using the ptrace().
 
  -- Uri Herrera <uri_herrera@nxos.org>  Tue, 16 May 2026 17:40:00 -0600
