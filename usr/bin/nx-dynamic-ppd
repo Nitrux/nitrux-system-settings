@@ -129,7 +129,7 @@ set_profile_if_needed() {
 }
 
 apply_policy_for_state() {
-    local state="$1" cap
+    local state="$1" cap target urgency icon body
 
     if ! has_battery; then
         log "state=$state bat=0"
@@ -151,15 +151,29 @@ apply_policy_for_state() {
         return 0
     fi
 
-    if [ "$cap" -ge "$PERF_ON_BATT_MIN" ]; then
-        set_profile_if_needed "performance" "low" "battery-100" "On battery (${cap}%): performance"
+    if [ "$cap" -le "$CRITICAL_LEVEL" ]; then
+        target="power-saver"
+        urgency="critical"
+        icon="battery-low"
+        body="On battery (${cap}%): power-saver"
+    elif [ "$cap" -ge "$PERF_ON_BATT_MIN" ]; then
+        target="performance"
+        urgency="low"
+        icon="battery-100"
+        body="On battery (${cap}%): performance"
     elif [ "$cap" -ge "$BALANCED_MIN" ] && [ "$cap" -le "$BALANCED_MAX" ]; then
-        set_profile_if_needed "balanced" "low" "battery-060" "On battery (${cap}%): balanced"
-    elif [ "$cap" -le "$CRITICAL_LEVEL" ]; then
-        set_profile_if_needed "power-saver" "critical" "battery-low" "On battery (${cap}%): power-saver"
+        target="balanced"
+        urgency="low"
+        icon="battery-060"
+        body="On battery (${cap}%): balanced"
     else
-        set_profile_if_needed "balanced" "low" "battery-060" "On battery (${cap}%): balanced"
+        target="balanced"
+        urgency="low"
+        icon="battery-060"
+        body="On battery (${cap}%): balanced"
     fi
+
+    set_profile_if_needed "$target" "$urgency" "$icon" "$body"
 }
 
 wait_for_state() {

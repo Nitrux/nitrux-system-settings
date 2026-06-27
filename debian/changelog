@@ -1,3 +1,9 @@
+nitrux-system-settings (0.7.7) nitrux; urgency=medium
+
+  * Prioritize critical battery power-saver policy
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Sat, 27 Jun 2026 02:30:00 -0600
+
 nitrux-system-settings (0.7.6) nitrux; urgency=medium
 
   * Only enable level 1 ptrace restriction.
