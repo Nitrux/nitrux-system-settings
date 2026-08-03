@@ -3,11 +3,11 @@ Upstream-Name: nitrux-system-settings
 Source: https://github.com/Nitrux/nitrux-system-settings.git
 
 Files: *
-Copyright: 2017 Alexis López Zubieta <azubieta90@gmail.com>
+Copyright: 2026 Uri Herrera <uri_herrera@nxos.org>
 License: BSD-3-Clause
 
 Files: debian/*
-Copyright: 2017 Alexis López Zubieta <azubieta90@gmail.com>
+Copyright: 2026 Uri Herrera <uri_herrera@nxos.org>
 License: BSD-3-Clause
 
 License: BSD-3-Clause

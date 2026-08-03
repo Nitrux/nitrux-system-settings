@@ -1,3 +1,19 @@
+nitrux-system-settings (0.7.8) nitrux; urgency=medium
+
+* Security and network tuning updates:
+    - kernel.panic: Set panic timeout to 30 seconds for automatic recovery.
+    - kernel.kptr_restrict: Increase restriction to level 2 to protect KASLR.
+    - kernel.unprivileged_bpf_disabled: Restrict eBPF loading to privileged users.
+    - dev.tty.ldisc_autoload: Disable auto-loading of TTY line disciplines.
+    - net.ipv4.tcp_rfc1337: Enable TIME-WAIT assassination protection (RFC 1337).
+    - net.ipv4.conf.*.rp_filter: Switch to loose mode (2) for VPN compatibility.
+    - net.ipv4.conf.*.send_redirects: Disable ICMP redirect emission on non-routers.
+    - net.ipv4.conf.*.log_martians: Enable logging of martian/spoofed packets.
+  * Configuration cleanups:
+    - Remove redundant IPv6 interface-specific temporary address line.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Sun, 03 Aug 2026 17:37:00 -0600
+
 nitrux-system-settings (0.7.7) nitrux; urgency=medium
 
   * Prioritize critical battery power-saver policy
