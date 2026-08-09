@@ -134,7 +134,7 @@ apply_policy_for_state() {
     if ! has_battery; then
         log "state=$state bat=0"
         if [ "$state" = "ac" ]; then
-            set_profile_if_needed "performance" "low" "ac-adapter" "AC detected (no battery): performance"
+            set_profile_if_needed "performance" "low" "ac-battery-medium-charging" "AC detected (no battery): performance"
         fi
         return 0
     fi
@@ -143,7 +143,7 @@ apply_policy_for_state() {
     log "state=$state bat=1 cap=$cap"
 
     if [ "$state" = "ac" ]; then
-        set_profile_if_needed "performance" "low" "ac-adapter" "AC detected: performance"
+        set_profile_if_needed "performance" "low" "ac-battery-medium-charging" "AC detected: performance"
         return 0
     fi
 
@@ -159,17 +159,17 @@ apply_policy_for_state() {
     elif [ "$cap" -ge "$PERF_ON_BATT_MIN" ]; then
         target="performance"
         urgency="low"
-        icon="battery-100"
+        icon="battery-full"
         body="On battery (${cap}%): performance"
     elif [ "$cap" -ge "$BALANCED_MIN" ] && [ "$cap" -le "$BALANCED_MAX" ]; then
         target="balanced"
         urgency="low"
-        icon="battery-060"
+        icon="battery-medium"
         body="On battery (${cap}%): balanced"
     else
         target="balanced"
         urgency="low"
-        icon="battery-060"
+        icon="battery-medium"
         body="On battery (${cap}%): balanced"
     fi
 
