@@ -1,3 +1,9 @@
+nitrux-system-settings (0.8.3) nitrux; urgency=medium
+
+  * Remove automatic DNSCrypt relay reconfiguration to prevent dnscrypt-proxy failures during network activation.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Mon, 12 Oct 2026 21:45:00 -0600
+
 nitrux-system-settings (0.8.2) nitrux; urgency=medium
 
   * Remove nx-envycontrol.

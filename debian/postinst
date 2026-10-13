@@ -4,4 +4,6 @@
 # Copyright 2024-2025 <Nitrux Latinoamericana S.C. <hello@nxos.org>>
 
 
+rm -f /etc/NetworkManager/dispatcher.d/98-set-dnscrypt-relay
+
 exit 0
