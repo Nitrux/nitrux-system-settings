@@ -1,0 +1,34 @@
+#!/sbin/openrc-run
+
+description="Applies Nitrux Aesthetic FHS directory filtering"
+
+depend() {
+	need mountbinds
+	after mountbinds
+}
+
+start() {
+	if [ ! -x /usr/bin/afhs ]; then
+		einfo "afhs is not installed, skipping Aesthetic FHS filtering."
+		return 0
+	fi
+
+	if [ ! -f /etc/aesthetic-fhs.conf ]; then
+		eerror "Aesthetic FHS configuration not found: /etc/aesthetic-fhs.conf"
+		return 1
+	fi
+
+	ebegin "Applying Aesthetic FHS directory filtering"
+	/usr/bin/afhs load /etc/aesthetic-fhs.conf
+	eend $?
+}
+
+stop() {
+	if [ ! -x /usr/bin/afhs ]; then
+		return 0
+	fi
+
+	ebegin "Removing Aesthetic FHS directory filtering"
+	/usr/bin/afhs flush
+	eend $?
+}

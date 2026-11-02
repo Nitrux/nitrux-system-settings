@@ -1,3 +1,9 @@
+nitrux-system-settings (0.8.4) nitrux; urgency=medium
+
+  * Add the afhs OpenRC service and Aesthetic FHS configuration.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Mon, 02 Nov 2026 16:22:16 -0600
+
 nitrux-system-settings (0.8.3) nitrux; urgency=medium
 
   * Remove automatic DNSCrypt relay reconfiguration to prevent dnscrypt-proxy failures during network activation.
