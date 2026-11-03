@@ -1,3 +1,9 @@
+nitrux-system-settings (0.8.5) nitrux; urgency=medium
+
+  * Expand and organize the Aesthetic FHS root entry configuration.
+
+ -- Uri Herrera <uri_herrera@nxos.org>  Tue, 03 Nov 2026 00:00:00 -0600
+
 nitrux-system-settings (0.8.4) nitrux; urgency=medium
 
   * Add the afhs OpenRC service and Aesthetic FHS configuration.
