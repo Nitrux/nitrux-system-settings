@@ -1,0 +1,26 @@
+#!/bin/sh
+
+power_save=/sys/module/snd_hda_intel/parameters/power_save
+[ -w "$power_save" ] || exit 0
+
+has_battery=0
+for supply in /sys/class/power_supply/*; do
+    [ -r "$supply/type" ] || continue
+    case "$(cat "$supply/type")" in
+        Mains)
+            if [ -r "$supply/online" ] && [ "$(cat "$supply/online")" = 1 ]; then
+                printf '0\n' > "$power_save"
+                exit $?
+            fi
+            ;;
+        Battery)
+            has_battery=1
+            ;;
+    esac
+done
+
+if [ "$has_battery" -eq 1 ]; then
+    printf '10\n' > "$power_save"
+else
+    printf '0\n' > "$power_save"
+fi

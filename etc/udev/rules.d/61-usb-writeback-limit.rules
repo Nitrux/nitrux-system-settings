@@ -1,0 +1,2 @@
+# Limit queued writes on USB disks so eject and sync do not wait on a large backlog.
+ACTION=="add|change", SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", ENV{ID_BUS}=="usb", ATTR{bdi/strict_limit}="1", ATTR{bdi/max_bytes}="16777216"

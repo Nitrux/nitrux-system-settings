@@ -1,0 +1,4 @@
+# Update Intel HDA power saving when the card or power source appears or changes.
+ACTION=="add", SUBSYSTEM=="sound", KERNEL=="card*", DRIVERS=="snd_hda_intel", RUN+="/usr/lib/udev/nx-hda-power-save"
+ACTION=="add|change", SUBSYSTEM=="power_supply", ENV{POWER_SUPPLY_TYPE}=="Mains", RUN+="/usr/lib/udev/nx-hda-power-save"
+ACTION=="add|change", SUBSYSTEM=="power_supply", ENV{POWER_SUPPLY_TYPE}=="Battery", RUN+="/usr/lib/udev/nx-hda-power-save"
